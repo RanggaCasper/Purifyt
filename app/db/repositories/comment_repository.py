@@ -67,6 +67,12 @@ class CommentRepository:
         )
         return result.scalar()
 
+    async def count_search(self, keyword: str) -> int:
+        result = await self.db.execute(
+            select(func.count(Comment.id)).where(Comment.comment.contains(keyword))
+        )
+        return result.scalar()
+
     async def delete_by_dataset(self, dataset_id: int) -> int:
         comments = await self.get_by_dataset(dataset_id, limit=999999)
         count = len(comments)
