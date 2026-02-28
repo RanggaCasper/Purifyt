@@ -1,0 +1,33 @@
+# Core
+fastapi==0.115.*
+uvicorn[standard]==0.34.*
+pydantic[email]==2.*
+pydantic-settings==2.*
+
+# Database
+sqlalchemy[asyncio]==2.*
+aiomysql==0.2.*
+pymysql==1.*
+
+# Auth
+passlib[bcrypt]==1.7.*
+bcrypt==4.0.1
+python-jose[cryptography]==3.3.*
+python-multipart==0.0.*
+
+# YouTube
+httpx==0.28.*
+
+# Kaggle
+kagglehub>=0.3
+pandas==2.*
+
+# ML Model
+transformers>=4.40
+torch>=2.0
+emoji>=2.0
+
+# Dev / Test
+pytest==8.*
+pytest-asyncio==0.24.*
+httpx  # also used for testing

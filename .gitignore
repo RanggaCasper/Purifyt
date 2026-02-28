@@ -1,0 +1,19 @@
+__pycache__/
+*.pyc
+*.pyo
+.env
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+*.db
+*.sqlite3
+.idea/
+.vscode/
+*.log
+kaggle_temp/
+
+# Ignore all files in the model directory except .gitkeep
+!model/.gitkeep
+model/*

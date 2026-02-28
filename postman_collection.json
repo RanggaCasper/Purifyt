@@ -1,0 +1,612 @@
+{
+  "info": {
+    "name": "Purifyt API",
+    "description": "YouTube Comment Dataset API with JWT auth (access + refresh tokens), token blacklisting, judi online comment detection, and channel exploration.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refresh_token",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Root",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/",
+              "host": ["{{base_url}}"],
+              "path": [""]
+            }
+          }
+        },
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var json = pm.response.json();",
+                  "    pm.collectionVariables.set('user_id', json.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"testuser\",\n  \"email\": \"test@example.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "register"]
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var json = pm.response.json();",
+                  "    pm.collectionVariables.set('token', json.access_token);",
+                  "    pm.collectionVariables.set('refresh_token', json.refresh_token);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "username", "value": "testuser", "type": "text" },
+                { "key": "password", "value": "password123", "type": "text" }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var json = pm.response.json();",
+                  "    pm.collectionVariables.set('token', json.access_token);",
+                  "    pm.collectionVariables.set('refresh_token', json.refresh_token);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/refresh",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "refresh"]
+            }
+          }
+        },
+        {
+          "name": "Logout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    pm.collectionVariables.set('token', '');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/logout",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "logout"]
+            }
+          }
+        },
+        {
+          "name": "Logout All (revoke access + refresh)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    pm.collectionVariables.set('token', '');",
+                  "    pm.collectionVariables.set('refresh_token', '');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/logout/all",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "logout", "all"]
+            }
+          }
+        },
+        {
+          "name": "Me (Current User)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/me",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "me"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "List Users",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/users/?skip=0&limit=50",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "users", ""],
+              "query": [
+                { "key": "skip", "value": "0" },
+                { "key": "limit", "value": "50" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get User by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/users/1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "users", "1"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Datasets",
+      "item": [
+        {
+          "name": "List Datasets",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/datasets/?skip=0&limit=50",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "datasets", ""],
+              "query": [
+                { "key": "skip", "value": "0" },
+                { "key": "limit", "value": "50" },
+                { "key": "source", "value": "", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Datasets (filter: kaggle)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/datasets/?source=kaggle",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "datasets", ""],
+              "query": [
+                { "key": "source", "value": "kaggle" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Datasets (filter: youtube_api)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/datasets/?source=youtube_api",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "datasets", ""],
+              "query": [
+                { "key": "source", "value": "youtube_api" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Dataset by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/datasets/1?skip=0&limit=100",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "datasets", "1"],
+              "query": [
+                { "key": "skip", "value": "0" },
+                { "key": "limit", "value": "100" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Comments by Dataset",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/datasets/1/comments?skip=0&limit=100",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "datasets", "1", "comments"],
+              "query": [
+                { "key": "skip", "value": "0" },
+                { "key": "limit", "value": "100" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Search Comments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/datasets/search/comments?keyword=slot&skip=0&limit=100",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "datasets", "search", "comments"],
+              "query": [
+                { "key": "keyword", "value": "slot" },
+                { "key": "skip", "value": "0" },
+                { "key": "limit", "value": "100" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Dataset",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/datasets/1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "datasets", "1"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "YouTube",
+      "item": [
+        {
+          "name": "Search YouTube Videos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/youtube/search?query=python tutorial&max_results=5",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "youtube", "search"],
+              "query": [
+                { "key": "query", "value": "python tutorial" },
+                { "key": "max_results", "value": "5" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Import YouTube Comments (by video_id)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"python tutorial\",\n  \"video_id\": \"dQw4w9WgXcQ\",\n  \"max_results\": 20,\n  \"dataset_name\": \"My YouTube Dataset\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/youtube/import",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "youtube", "import"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Kaggle",
+      "item": [
+        {
+          "name": "Import Kaggle Dataset",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dataset_slug\": \"username/dataset-name\",\n  \"dataset_name\": \"My Kaggle Dataset\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/kaggle/import",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "kaggle", "import"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Labeling",
+      "item": [
+        {
+          "name": "Predict Single Comment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"slot gacor hari ini maxwin bos\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/labeling/predict",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "labeling", "predict"]
+            }
+          }
+        },
+        {
+          "name": "Predict Batch",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"texts\": [\n    \"slot gacor hari ini\",\n    \"videonya bagus banget kak\",\n    \"link slot deposit 10rb\",\n    \"semoga sukses terus\"\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/labeling/predict/batch",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "labeling", "predict", "batch"]
+            }
+          }
+        },
+        {
+          "name": "Auto-Label Dataset",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/labeling/dataset/1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "labeling", "dataset", "1"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Explorer",
+      "item": [
+        {
+          "name": "Run Video Explorer (SSE)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"video_id\": \"dQw4w9WgXcQ\",\n  \"dataset_name\": \"Explorer Dataset\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/explorer/run",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "explorer", "run"]
+            }
+          }
+        },
+        {
+          "name": "Run Channel Explorer (SSE)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"channel\": \"@WindahBatubara\",\n  \"max_videos\": 10,\n  \"dataset_name\": \"Channel Explorer Dataset\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/explorer/channel/run",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "explorer", "channel", "run"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
