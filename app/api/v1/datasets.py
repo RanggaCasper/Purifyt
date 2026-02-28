@@ -13,11 +13,12 @@ from app.core.schemas import (
     MessageResponse,
 )
 from app.core.services.auth_service import get_current_user
+from app.utils.response_formatter import APIResponse, success_response
 
 router = APIRouter(prefix="/datasets", tags=["Datasets"])
 
 
-@router.get("/", response_model=list[DatasetResponse])
+@router.get("/", response_model=APIResponse)
 async def list_datasets(
     skip: int = 0,
     limit: int = 50,
@@ -43,10 +44,10 @@ async def list_datasets(
                 comment_count=count,
             )
         )
-    return results
+    return success_response(data=results)
 
 
-@router.get("/{dataset_id}", response_model=DatasetDetailResponse)
+@router.get("/{dataset_id}", response_model=APIResponse)
 async def get_dataset(
     dataset_id: int,
     skip: int = 0,
@@ -59,7 +60,7 @@ async def get_dataset(
         raise HTTPException(status_code=404, detail="Dataset not found")
     comment_repo = CommentRepository(db)
     comments = await comment_repo.get_by_dataset(dataset_id, skip=skip, limit=limit)
-    return DatasetDetailResponse(
+    return success_response(data=DatasetDetailResponse(
         id=ds.id,
         name=ds.name,
         description=ds.description,
@@ -87,10 +88,10 @@ async def get_dataset(
             )
             for c in comments
         ],
-    )
+    ))
 
 
-@router.delete("/{dataset_id}", response_model=MessageResponse)
+@router.delete("/{dataset_id}", response_model=APIResponse)
 async def delete_dataset(
     dataset_id: int,
     db: AsyncSession = Depends(get_db),
@@ -100,10 +101,10 @@ async def delete_dataset(
     deleted = await repo.delete(dataset_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Dataset not found")
-    return MessageResponse(message="Dataset deleted successfully")
+    return success_response(message="Dataset deleted successfully")
 
 
-@router.get("/{dataset_id}/comments", response_model=list[CommentResponse])
+@router.get("/{dataset_id}/comments", response_model=APIResponse)
 async def list_comments(
     dataset_id: int,
     skip: int = 0,
@@ -112,7 +113,7 @@ async def list_comments(
 ):
     comment_repo = CommentRepository(db)
     comments = await comment_repo.get_by_dataset(dataset_id, skip=skip, limit=limit)
-    return [
+    return success_response(data=[
         CommentResponse(
             id=c.id,
             dataset_id=c.dataset_id,
@@ -130,10 +131,10 @@ async def list_comments(
             created_at=c.created_at,
         )
         for c in comments
-    ]
+    ])
 
 
-@router.get("/search/comments", response_model=list[CommentResponse])
+@router.get("/search/comments", response_model=APIResponse)
 async def search_comments(
     keyword: str = Query(..., min_length=1),
     skip: int = 0,
@@ -142,7 +143,7 @@ async def search_comments(
 ):
     comment_repo = CommentRepository(db)
     comments = await comment_repo.search(keyword, skip=skip, limit=limit)
-    return [
+    return success_response(data=[
         CommentResponse(
             id=c.id,
             dataset_id=c.dataset_id,
@@ -160,4 +161,4 @@ async def search_comments(
             created_at=c.created_at,
         )
         for c in comments
-    ]
+    ])

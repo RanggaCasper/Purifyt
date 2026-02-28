@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.connection import get_db
 from app.db.repositories.user_repository import UserRepository
 from app.core.schemas import Token, UserCreate, UserResponse
+from app.utils.response_formatter import APIResponse, success_response
 from app.core.services.auth_service import (
     hash_password,
     verify_password,
@@ -25,7 +26,7 @@ class RefreshRequest(BaseModel):
     refresh_token: str
 
 
-@router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/register", response_model=APIResponse, status_code=status.HTTP_201_CREATED)
 async def register(payload: UserCreate, db: AsyncSession = Depends(get_db)):
     repo = UserRepository(db)
 
@@ -39,10 +40,10 @@ async def register(payload: UserCreate, db: AsyncSession = Depends(get_db)):
         email=payload.email,
         hashed_password=hash_password(payload.password),
     )
-    return user
+    return success_response(data=UserResponse.model_validate(user), message="User registered successfully")
 
 
-@router.post("/login", response_model=Token)
+@router.post("/login", response_model=APIResponse)
 async def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: AsyncSession = Depends(get_db),
@@ -56,10 +57,10 @@ async def login(
             headers={"WWW-Authenticate": "Bearer"},
         )
     tokens = create_token_pair(user.username)
-    return tokens
+    return success_response(data=tokens, message="Login successful")
 
 
-@router.post("/refresh", response_model=Token)
+@router.post("/refresh", response_model=APIResponse)
 async def refresh_token(
     body: RefreshRequest,
     db: AsyncSession = Depends(get_db),
@@ -96,10 +97,10 @@ async def refresh_token(
     await db.commit()
 
     tokens = create_token_pair(user.username)
-    return tokens
+    return success_response(data=tokens, message="Token refreshed successfully")
 
 
-@router.post("/logout")
+@router.post("/logout", response_model=APIResponse)
 async def logout(
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db),
@@ -118,14 +119,14 @@ async def logout(
 
     await blacklist_token(token, user.id, db)
     await db.commit()
-    return {"message": "Successfully logged out"}
+    return success_response(message="Successfully logged out")
 
 
 class LogoutAllRequest(BaseModel):
     refresh_token: str | None = None
 
 
-@router.post("/logout/all")
+@router.post("/logout/all", response_model=APIResponse)
 async def logout_all(
     body: LogoutAllRequest = LogoutAllRequest(),
     token: str = Depends(oauth2_scheme),
@@ -152,9 +153,9 @@ async def logout_all(
             pass
 
     await db.commit()
-    return {"message": "All provided tokens have been revoked"}
+    return success_response(message="All provided tokens have been revoked")
 
 
-@router.get("/me", response_model=UserResponse)
+@router.get("/me", response_model=APIResponse)
 async def me(current_user=Depends(get_current_user)):
-    return current_user
+    return success_response(data=UserResponse.model_validate(current_user))

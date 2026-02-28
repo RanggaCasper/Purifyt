@@ -15,11 +15,12 @@ from app.core.schemas import (
 )
 from app.core.services.youtube_service import YouTubeService
 from app.core.services.auth_service import get_current_user
+from app.utils.response_formatter import APIResponse, success_response
 
 router = APIRouter(prefix="/youtube", tags=["YouTube"])
 
 
-@router.get("/search", response_model=list[YouTubeVideoInfo])
+@router.get("/search", response_model=APIResponse)
 async def search_youtube_videos(
     query: str,
     max_results: int = 5,
@@ -27,10 +28,10 @@ async def search_youtube_videos(
     """Search YouTube for videos matching the query. Does NOT save to DB."""
     service = YouTubeService()
     videos = await service.search_videos(query, max_results=max_results)
-    return [YouTubeVideoInfo(**v) for v in videos]
+    return success_response(data=[YouTubeVideoInfo(**v) for v in videos])
 
 
-@router.post("/import", response_model=DatasetResponse)
+@router.post("/import", response_model=APIResponse)
 async def import_youtube_comments(
     payload: YouTubeSearchRequest,
     db: AsyncSession = Depends(get_db),
@@ -77,13 +78,16 @@ async def import_youtube_comments(
     c_repo = CommentRepository(db)
     count = await c_repo.bulk_create(comment_rows)
 
-    return DatasetResponse(
-        id=dataset.id,
-        name=dataset.name,
-        description=dataset.description,
-        source=dataset.source.value,
-        source_url=dataset.source_url,
-        owner_id=dataset.owner_id,
-        created_at=dataset.created_at,
-        comment_count=count,
+    return success_response(
+        data=DatasetResponse(
+            id=dataset.id,
+            name=dataset.name,
+            description=dataset.description,
+            source=dataset.source.value,
+            source_url=dataset.source_url,
+            owner_id=dataset.owner_id,
+            created_at=dataset.created_at,
+            comment_count=count,
+        ),
+        message="YouTube comments imported successfully",
     )

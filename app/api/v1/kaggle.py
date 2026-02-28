@@ -10,6 +10,7 @@ from app.db.repositories.comment_repository import CommentRepository
 from app.core.schemas import KaggleImportRequest, DatasetResponse
 from app.core.services.kaggle_service import KaggleService
 from app.core.services.auth_service import get_current_user
+from app.utils.response_formatter import APIResponse, success_response
 
 router = APIRouter(prefix="/kaggle", tags=["Kaggle"])
 
@@ -69,7 +70,7 @@ async def _do_import(
     )
 
 
-@router.get("/import/{owner}/{dataset}", response_model=DatasetResponse)
+@router.get("/import/{owner}/{dataset}", response_model=APIResponse)
 async def import_kaggle_simple(
     owner: str,
     dataset: str,
@@ -82,14 +83,13 @@ async def import_kaggle_simple(
     Example: `GET /api/v1/kaggle/import/yaemico/judionline`
     """
     slug = f"{owner}/{dataset}"
-    return await _do_import(
-        dataset_slug=slug,
-        db=db,
-        owner_id=current_user.id,
+    return success_response(
+        data=await _do_import(dataset_slug=slug, db=db, owner_id=current_user.id),
+        message="Kaggle dataset imported successfully",
     )
 
 
-@router.post("/import", response_model=DatasetResponse)
+@router.post("/import", response_model=APIResponse)
 async def import_kaggle_dataset(
     payload: KaggleImportRequest,
     db: AsyncSession = Depends(get_db),
@@ -103,9 +103,12 @@ async def import_kaggle_dataset(
     { "dataset_slug": "yaemico/judionline" }
     ```
     """
-    return await _do_import(
-        dataset_slug=payload.dataset_slug,
-        db=db,
-        owner_id=current_user.id,
-        dataset_name=payload.dataset_name,
+    return success_response(
+        data=await _do_import(
+            dataset_slug=payload.dataset_slug,
+            db=db,
+            owner_id=current_user.id,
+            dataset_name=payload.dataset_name,
+        ),
+        message="Kaggle dataset imported successfully",
     )

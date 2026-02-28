@@ -10,6 +10,7 @@ from app.db.connection import get_db
 from app.db.models import Comment
 from app.db.repositories.comment_repository import CommentRepository
 from app.core.services.auth_service import get_current_user
+from app.utils.response_formatter import APIResponse, success_response
 
 router = APIRouter(prefix="/labeling", tags=["Labeling"])
 
@@ -39,7 +40,7 @@ class LabelDatasetResponse(BaseModel):
     judi_percentage: float
 
 
-@router.post("/predict", response_model=PredictResponse)
+@router.post("/predict", response_model=APIResponse)
 async def predict_single(payload: PredictRequest):
     """Predict a single comment text."""
     from app.core.services.model_service import predict
@@ -47,10 +48,10 @@ async def predict_single(payload: PredictRequest):
         result = predict(payload.text)
     except (RuntimeError, FileNotFoundError) as e:
         raise HTTPException(status_code=500, detail=str(e))
-    return PredictResponse(text=payload.text, **result)
+    return success_response(data=PredictResponse(text=payload.text, **result))
 
 
-@router.post("/predict/batch", response_model=list[PredictResponse])
+@router.post("/predict/batch", response_model=APIResponse)
 async def predict_batch(payload: BatchPredictRequest):
     """Predict a batch of comment texts."""
     from app.core.services.model_service import predict_batch as pb
@@ -58,10 +59,10 @@ async def predict_batch(payload: BatchPredictRequest):
         results = pb(payload.texts)
     except (RuntimeError, FileNotFoundError) as e:
         raise HTTPException(status_code=500, detail=str(e))
-    return [PredictResponse(text=t, **r) for t, r in zip(payload.texts, results)]
+    return success_response(data=[PredictResponse(text=t, **r) for t, r in zip(payload.texts, results)])
 
 
-@router.post("/dataset/{dataset_id}", response_model=LabelDatasetResponse)
+@router.post("/dataset/{dataset_id}", response_model=APIResponse)
 async def label_dataset(
     dataset_id: int,
     db: AsyncSession = Depends(get_db),
@@ -102,11 +103,14 @@ async def label_dataset(
     await db.flush()
 
     total = len(comments)
-    return LabelDatasetResponse(
-        dataset_id=dataset_id,
-        total_comments=total,
-        labeled_count=total,
-        normal_count=normal_count,
-        judi_count=judi_count,
-        judi_percentage=round((judi_count / total) * 100, 2) if total > 0 else 0,
+    return success_response(
+        data=LabelDatasetResponse(
+            dataset_id=dataset_id,
+            total_comments=total,
+            labeled_count=total,
+            normal_count=normal_count,
+            judi_count=judi_count,
+            judi_percentage=round((judi_count / total) * 100, 2) if total > 0 else 0,
+        ),
+        message=f"{total} comments labeled successfully",
     )
