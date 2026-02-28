@@ -73,6 +73,25 @@ class CommentRepository:
         )
         return result.scalar()
 
+    async def update_label(self, comment_id: int, label: Optional[str]) -> Optional[Comment]:
+        comment = await self.get_by_id(comment_id)
+        if not comment:
+            return None
+        comment.label = label
+        await self.db.flush()
+        return comment
+
+    async def bulk_update_labels(self, updates: List[dict]) -> int:
+        """updates: list of {comment_id, label}"""
+        count = 0
+        for item in updates:
+            comment = await self.get_by_id(item["comment_id"])
+            if comment:
+                comment.label = item["label"]
+                count += 1
+        await self.db.flush()
+        return count
+
     async def delete_by_dataset(self, dataset_id: int) -> int:
         comments = await self.get_by_dataset(dataset_id, limit=999999)
         count = len(comments)
