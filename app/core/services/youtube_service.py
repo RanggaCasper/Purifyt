@@ -1,5 +1,6 @@
 """YouTube Data API v3 service: search videos and fetch comments."""
 
+import re
 from datetime import datetime
 from typing import List, Optional
 import httpx
@@ -208,15 +209,72 @@ class YouTubeService:
             "description": snippet.get("description", ""),
         }
 
+    @staticmethod
+    def _parse_duration_seconds(iso_duration: str) -> int:
+        """Parse ISO 8601 duration string (e.g. PT1M30S) to total seconds."""
+        pattern = r"PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?"
+        match = re.match(pattern, iso_duration)
+        if not match:
+            return 0
+        hours = int(match.group(1) or 0)
+        minutes = int(match.group(2) or 0)
+        seconds = int(match.group(3) or 0)
+        return hours * 3600 + minutes * 60 + seconds
+
+    async def _filter_regular_videos(
+        self, client: httpx.AsyncClient, video_ids: List[str]
+    ) -> List[str]:
+        """
+        Given a list of video IDs, return only those that are regular content videos:
+        - Not a Short (duration > 60 seconds)
+        - Not a live stream or premiere (liveStreamingDetails absent or liveBroadcastContent == 'none')
+        """
+        if not video_ids:
+            return []
+
+        # Batch in groups of 50 (API limit)
+        regular_ids: List[str] = []
+        for i in range(0, len(video_ids), 50):
+            batch = video_ids[i : i + 50]
+            params = {
+                "part": "contentDetails,snippet",
+                "id": ",".join(batch),
+                "key": self.api_key,
+            }
+            resp = await client.get(f"{BASE_URL}/videos", params=params, timeout=30)
+            if resp.status_code != 200:
+                raise HTTPException(status_code=resp.status_code, detail=resp.json())
+            data = resp.json()
+
+            for item in data.get("items", []):
+                vid_id = item["id"]
+                snippet = item.get("snippet", {})
+                content_details = item.get("contentDetails", {})
+
+                # Filter out live streams / premieres
+                live_status = snippet.get("liveBroadcastContent", "none")
+                if live_status in ("live", "upcoming"):
+                    continue
+
+                # Filter out Shorts (duration <= 60 seconds)
+                duration_str = content_details.get("duration", "PT0S")
+                duration_secs = self._parse_duration_seconds(duration_str)
+                if duration_secs <= 60:
+                    continue
+
+                regular_ids.append(vid_id)
+
+        return regular_ids
+
     async def get_channel_videos(
         self, channel_id: str, max_results: Optional[int] = None
     ) -> List[dict]:
         """
-        Fetch videos from a channel using the search endpoint.
+        Fetch regular content videos from a channel (excludes Shorts and live streams).
         If max_results is None, fetch all available videos.
         Returns: [{video_id, title, published_at}, ...]
         """
-        params = {
+        search_params = {
             "part": "snippet",
             "channelId": channel_id,
             "type": "video",
@@ -230,14 +288,11 @@ class YouTubeService:
 
         async with httpx.AsyncClient() as client:
             while True:
-                if max_results is not None and len(all_videos) >= max_results:
-                    break
-
                 if page_token:
-                    params["pageToken"] = page_token
+                    search_params["pageToken"] = page_token
 
                 resp = await client.get(
-                    f"{BASE_URL}/search", params=params, timeout=30
+                    f"{BASE_URL}/search", params=search_params, timeout=30
                 )
                 if resp.status_code != 200:
                     raise HTTPException(
@@ -245,16 +300,38 @@ class YouTubeService:
                     )
                 data = resp.json()
 
+                # Collect candidate videos (pre-filter live from search snippet)
+                candidate_ids: List[str] = []
+                candidate_meta: dict = {}
                 for item in data.get("items", []):
                     vid = item.get("id", {}).get("videoId")
                     if not vid:
                         continue
                     snippet = item["snippet"]
-                    all_videos.append({
-                        "video_id": vid,
+                    # Quick pre-filter: skip ongoing/upcoming live streams
+                    if snippet.get("liveBroadcastContent", "none") in ("live", "upcoming"):
+                        continue
+                    candidate_ids.append(vid)
+                    candidate_meta[vid] = {
                         "title": snippet["title"],
                         "published_at": snippet["publishedAt"],
+                    }
+
+                # Deep-filter: remove Shorts and completed live streams by duration
+                regular_ids = await self._filter_regular_videos(client, candidate_ids)
+
+                for vid_id in regular_ids:
+                    meta = candidate_meta[vid_id]
+                    all_videos.append({
+                        "video_id": vid_id,
+                        "title": meta["title"],
+                        "published_at": meta["published_at"],
                     })
+                    if max_results is not None and len(all_videos) >= max_results:
+                        break
+
+                if max_results is not None and len(all_videos) >= max_results:
+                    break
 
                 page_token = data.get("nextPageToken")
                 if not page_token:

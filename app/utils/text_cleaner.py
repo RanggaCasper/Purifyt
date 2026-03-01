@@ -1,30 +1,30 @@
 """Utility functions for cleaning comment text."""
 
 import re
+import unicodedata
 
 import emoji
 
-
 def clean_comment(text: str) -> str:
     """
-    Clean a comment string:
-    1. Remove all emojis (using the emoji library).
-    2. Remove superscripts/subscripts (², ³, etc.).
-    3. Collapse whitespace and convert to lowercase.
-
-    Examples:
-        >>> clean_comment("Bang windah kamu kok gak main 😢😢😢")
-        'bang windah kamu kok gak main'
-        >>> clean_comment("Vlognya bikin kangen! 💕𝐌𝐎𝐍𝐀𝟒𝐃🟣 bikin hidup!")
-        'vlognya bikin kangen! 𝐌𝐎𝐍𝐀𝟒𝐃 bikin hidup!'
+    Clean the comment text by:
+    - Normalizing bold/fancy unicode and collapsing repeated characters
+    - Removing emojis (using the emoji library and additional unicode ranges)
+    - Removing superscripts/subscripts and zero-width/invisible formatting characters
+    - Collapsing repeated punctuation and standalone repeated characters
+    - Collapsing multiple spaces and stripping
+    - Lowercasing the text
     """
     if not text:
         return ""
+    
+    # Normalize bold/fancy unicode and collapse repeated characters
+    text = _normalize_text(text)
 
-    # 1. Remove all emojis detected by the emoji library
+    # Remove all emojis detected by the emoji library
     text = emoji.replace_emoji(text, replace="")
 
-    # 2. Remove remaining emoji/symbol unicode ranges not caught by the library
+    # Remove remaining emoji/symbol unicode ranges not caught by the library
     text = re.compile(
         "["
         "\U0001F600-\U0001F64F"  # emoticons
@@ -43,22 +43,69 @@ def clean_comment(text: str) -> str:
         flags=re.UNICODE,
     ).sub(" ", text)
 
-    # 3. Remove superscripts and subscripts (², ³, ¹, ⁰-⁹, ₀-₉, etc.)
+    # Remove superscripts and subscripts (², ³, ¹, ⁰-⁹, ₀-₉, etc.)
     text = re.sub(r"[\u00b2\u00b3\u00b9\u2070-\u209f]", "", text)
 
-    # 4. Remove zero-width and invisible formatting characters
+    # Remove zero-width and invisible formatting characters
     text = re.sub(r"[\u200b-\u200f\u200d\u202a-\u202e\u2060\ufeff\u00ad]", "", text)
 
-    # 5. Collapse repeated punctuation (... → ., ,,, → ,, !!! → !, etc.)
+    # Collapse repeated punctuation (.. → ., ,,, → ,, !!! → !, etc.)
     text = re.sub(r'([.!?,;:~\-]){2,}', r'\1', text)
 
-    # 6. Remove standalone repeated characters (e.g. "aaaa", "wwwww")
+    # Remove standalone repeated characters (e.g "aaaa", "wwwww")
     text = re.sub(r'\b(\w)\1{3,}\b', r'\1', text)
 
-    # 7. Collapse multiple spaces into one and strip
+    # Collapse multiple spaces into one and strip
     text = re.sub(r"\s+", " ", text).strip()
 
-    # 8. Lowercase
+    # Lowercase
     text = text.lower()
+
+    return text
+
+def _demojize_enclosed_letters(ch: str) -> str:
+    """
+    Convert enclosed/squared/circled latin letters to plain letters.
+    Examples: 🆁 -> R, 🅰 -> A, ⓐ -> a
+    """
+    try:
+        name = unicodedata.name(ch)
+    except ValueError:
+        return ch
+
+    patterns = [
+        "SQUARED LATIN CAPITAL LETTER ",
+        "NEGATIVE SQUARED LATIN CAPITAL LETTER ",
+        "CIRCLED LATIN CAPITAL LETTER ",
+        "LATIN CAPITAL LETTER ",  # (rarely needed, but harmless)
+        "SQUARED LATIN SMALL LETTER ",
+        "NEGATIVE SQUARED LATIN SMALL LETTER ",
+        "CIRCLED LATIN SMALL LETTER ",
+        "LATIN SMALL LETTER ",
+    ]
+
+    for p in patterns:
+        if name.startswith(p):
+            letter = name[len(p):]  # last part should be like "A", "B", ...
+            if len(letter) == 1 and "A" <= letter <= "Z":
+                # preserve case depending on "CAPITAL"/"SMALL"
+                return letter if "CAPITAL" in name else letter.lower()
+
+    return ch
+
+
+def _normalize_text(text: str, max_repeat: int = 2) -> str:
+    # First try Unicode normalization
+    text = unicodedata.normalize("NFKC", text)
+
+    # Fallback: convert squared/circled/enclosed latin letters using unicode names
+    text = "".join(_demojize_enclosed_letters(ch) for ch in text)
+
+    # Remove combining marks (accent/diacritics)
+    text = unicodedata.normalize("NFKD", text)
+    text = "".join(ch for ch in text if not unicodedata.combining(ch))
+
+    # Collapse repeated characters
+    text = re.sub(r"(.)\1{" + str(max_repeat) + r",}", r"\1" * max_repeat, text)
 
     return text

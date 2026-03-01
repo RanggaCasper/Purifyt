@@ -2,6 +2,15 @@ from typing import Optional, List
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models import Comment, DataSource
+from app.utils.text_cleaner import clean_comment as _clean_comment
+
+
+def _apply_clean_comment(data: dict) -> dict:
+    """Ensure clean_comment is always derived from comment via clean_comment()."""
+    raw = data.get("comment")
+    if raw:
+        data["clean_comment"] = _clean_comment(raw)
+    return data
 
 
 class CommentRepository:
@@ -9,6 +18,7 @@ class CommentRepository:
         self.db = db
 
     async def create(self, **kwargs) -> Comment:
+        kwargs = _apply_clean_comment(kwargs)
         comment = Comment(**kwargs)
         self.db.add(comment)
         await self.db.flush()
@@ -16,7 +26,7 @@ class CommentRepository:
         return comment
 
     async def bulk_create(self, comments_data: List[dict]) -> int:
-        comments = [Comment(**data) for data in comments_data]
+        comments = [Comment(**_apply_clean_comment(data)) for data in comments_data]
         self.db.add_all(comments)
         await self.db.flush()
         return len(comments)
@@ -99,3 +109,26 @@ class CommentRepository:
             await self.db.delete(c)
         await self.db.flush()
         return count
+
+    async def reprocess_clean_comments(self, batch_size: int = 500) -> int:
+        """Re-apply clean_comment() to all existing rows in batches.
+        Returns total number of rows updated."""
+        offset = 0
+        total_updated = 0
+        while True:
+            result = await self.db.execute(
+                select(Comment)
+                .where(Comment.comment.isnot(None))
+                .order_by(Comment.id)
+                .offset(offset)
+                .limit(batch_size)
+            )
+            batch = result.scalars().all()
+            if not batch:
+                break
+            for row in batch:
+                row.clean_comment = _clean_comment(row.comment)
+            await self.db.flush()
+            total_updated += len(batch)
+            offset += batch_size
+        return total_updated
