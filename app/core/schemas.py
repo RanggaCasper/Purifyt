@@ -4,13 +4,21 @@ from pydantic import BaseModel, EmailStr, Field
 
 
 class Token(BaseModel):
+    """JSON body returned on login / refresh (no refresh_token here!)."""
     access_token: str
-    refresh_token: str
     token_type: str = "bearer"
+    expires_in: int  # seconds until access_token expires
 
 
 class TokenData(BaseModel):
     username: Optional[str] = None
+
+
+class LoginRequest(BaseModel):
+    """Accepts email OR username + password."""
+    email: Optional[EmailStr] = None
+    username: Optional[str] = None
+    password: str = Field(..., min_length=1)
 
 
 class UserCreate(BaseModel):

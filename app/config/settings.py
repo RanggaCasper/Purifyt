@@ -25,8 +25,14 @@ class Settings(BaseSettings):
     # JWT
     SECRET_KEY: str = "your-secret-key-change-in-production"
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+
+    # Cookie / CORS
+    COOKIE_SECURE: bool = False          # True in production (HTTPS)
+    COOKIE_SAMESITE: str = "Lax"         # "None" if cross-domain + Secure=True
+    COOKIE_DOMAIN: str | None = None     # e.g. ".example.com" for cross-domain
+    CORS_ORIGINS: list[str] = ["http://localhost:3000"]  # Nuxt dev default
 
     @property
     def DATABASE_URL(self) -> str:

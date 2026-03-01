@@ -43,6 +43,7 @@ class Dataset(Base):
 
 
 class TokenBlacklist(Base):
+    """Legacy blacklist – kept for backwards-compat; new auth uses RefreshToken."""
     __tablename__ = "token_blacklist"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -51,6 +52,28 @@ class TokenBlacklist(Base):
     token_type = Column(String(10), nullable=False)  # "access" or "refresh"
     expires_at = Column(DateTime, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class RefreshToken(Base):
+    """
+    Stores hashed refresh tokens for rotation & revocation.
+    - token_hash: SHA-256 hex digest of the opaque token sent in the cookie
+    - revoked_at: set when the token is rotated or explicitly logged-out
+    - rotated_from_id: points to the previous RefreshToken after rotation
+    """
+    __tablename__ = "refresh_tokens"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    token_hash = Column(String(64), unique=True, nullable=False, index=True)
+    expires_at = Column(DateTime, nullable=False)
+    revoked_at = Column(DateTime, nullable=True)
+    rotated_from_id = Column(Integer, ForeignKey("refresh_tokens.id"), nullable=True)
+    user_agent = Column(String(512), nullable=True)
+    ip_address = Column(String(45), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", backref="refresh_tokens")
 
 
 class Comment(Base):

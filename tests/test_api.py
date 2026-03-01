@@ -73,48 +73,39 @@ async def test_register_invalid_email(client: AsyncClient):
 async def test_login_invalid(client: AsyncClient):
     resp = await client.post(
         "/api/v1/auth/login",
-        data={"username": "nonexistent", "password": "wrong"},
+        json={"username": "nonexistent", "password": "wrong"},
     )
     assert resp.status_code == 401
 
 
 @pytest.mark.anyio
 async def test_login_missing_fields(client: AsyncClient):
-    resp = await client.post("/api/v1/auth/login", data={})
+    resp = await client.post("/api/v1/auth/login", json={})
     assert resp.status_code == 422
 
 
 @pytest.mark.anyio
-async def test_refresh_invalid_token(client: AsyncClient):
-    resp = await client.post("/api/v1/auth/refresh", json={"refresh_token": "invalid.jwt.token"})
+async def test_refresh_no_cookie(client: AsyncClient):
+    """Refresh without a cookie should return 401."""
+    resp = await client.post("/api/v1/auth/refresh")
     assert resp.status_code == 401
 
 
 @pytest.mark.anyio
-async def test_refresh_missing_body(client: AsyncClient):
-    resp = await client.post("/api/v1/auth/refresh", json={})
-    assert resp.status_code == 422
-
-
-@pytest.mark.anyio
-async def test_refresh_with_access_token_rejected(client: AsyncClient):
-    """An access_token should NOT be accepted as a refresh_token."""
-    from app.core.services.auth_service import create_access_token
-    at = create_access_token(data={"sub": "testuser"})
-    resp = await client.post("/api/v1/auth/refresh", json={"refresh_token": at})
+async def test_refresh_invalid_cookie(client: AsyncClient):
+    """Refresh with a bogus cookie value should return 401."""
+    resp = await client.post(
+        "/api/v1/auth/refresh",
+        cookies={"refresh_token": "bogus-value"},
+    )
     assert resp.status_code == 401
 
 
 @pytest.mark.anyio
-async def test_logout_no_auth(client: AsyncClient):
+async def test_logout_no_cookie(client: AsyncClient):
+    """Logout without a cookie should still succeed (204)."""
     resp = await client.post("/api/v1/auth/logout")
-    assert resp.status_code == 401
-
-
-@pytest.mark.anyio
-async def test_logout_all_no_auth(client: AsyncClient):
-    resp = await client.post("/api/v1/auth/logout/all")
-    assert resp.status_code == 401
+    assert resp.status_code == 204
 
 
 # Protected Endpoints (no auth) 
@@ -355,57 +346,48 @@ class TestAuthService:
 
     def test_create_access_token(self):
         from app.core.services.auth_service import create_access_token
-        token = create_access_token(data={"sub": "testuser"})
+        token, expires_in = create_access_token(user_id=1, username="testuser")
         assert isinstance(token, str)
         assert len(token) > 10
+        assert isinstance(expires_in, int)
+        assert expires_in > 0
 
     def test_create_access_token_with_expiry(self):
         from datetime import timedelta
         from app.core.services.auth_service import create_access_token
-        token = create_access_token(
-            data={"sub": "testuser"},
+        token, expires_in = create_access_token(
+            user_id=1,
+            username="testuser",
             expires_delta=timedelta(minutes=5),
         )
         assert isinstance(token, str)
+        assert expires_in == 300
 
-    def test_create_refresh_token(self):
-        from app.core.services.auth_service import create_refresh_token, decode_token
-        token = create_refresh_token(data={"sub": "testuser"})
-        assert isinstance(token, str)
-        payload = decode_token(token)
-        assert payload["type"] == "refresh"
-        assert payload["sub"] == "testuser"
-        assert "jti" in payload
-
-    def test_create_token_pair(self):
-        from app.core.services.auth_service import create_token_pair, decode_token
-        pair = create_token_pair("testuser")
-        assert "access_token" in pair
-        assert "refresh_token" in pair
-        assert pair["token_type"] == "bearer"
-
-        access_payload = decode_token(pair["access_token"])
-        assert access_payload["type"] == "access"
-        assert access_payload["sub"] == "testuser"
-
-        refresh_payload = decode_token(pair["refresh_token"])
-        assert refresh_payload["type"] == "refresh"
-        assert refresh_payload["sub"] == "testuser"
-
-    def test_access_token_has_jti(self):
-        from app.core.services.auth_service import create_access_token, decode_token
-        token = create_access_token(data={"sub": "testuser"})
-        payload = decode_token(token)
+    def test_decode_access_token(self):
+        from app.core.services.auth_service import create_access_token, decode_access_token
+        token, _ = create_access_token(user_id=42, username="testuser")
+        payload = decode_access_token(token)
+        assert payload["type"] == "access"
+        assert payload["sub"] == "42"
+        assert payload["username"] == "testuser"
         assert "jti" in payload
         assert len(payload["jti"]) == 36  # UUID format
 
-    def test_token_types_differ(self):
-        from app.core.services.auth_service import create_access_token, create_refresh_token, decode_token
-        at = create_access_token(data={"sub": "u"})
-        rt = create_refresh_token(data={"sub": "u"})
-        assert decode_token(at)["type"] == "access"
-        assert decode_token(rt)["type"] == "refresh"
-        assert decode_token(at)["jti"] != decode_token(rt)["jti"]
+    def test_generate_refresh_token(self):
+        from app.core.services.auth_service import generate_refresh_token
+        rt1 = generate_refresh_token()
+        rt2 = generate_refresh_token()
+        assert isinstance(rt1, str)
+        assert len(rt1) > 40  # 64 bytes url-safe ≈ 86 chars
+        assert rt1 != rt2  # must be unique
+
+    def test_refresh_token_hash(self):
+        from app.core.services.auth_service import generate_refresh_token
+        from app.db.repositories.refresh_token_repository import hash_token
+        rt = generate_refresh_token()
+        h = hash_token(rt)
+        assert isinstance(h, str)
+        assert len(h) == 64  # SHA-256 hex
 
 
 # Kaggle Service 
