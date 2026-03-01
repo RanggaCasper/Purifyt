@@ -1,7 +1,8 @@
 """YouTube Channel Explorer endpoints.
 
 Takes a YouTube channel (@handle or ID), fetches recent videos,
-explores comments from each video, labels them, and saves results.
+labels comments per batch (streamed), and saves per video immediately
+when judi is found — no waiting until the end.
 Uses Server-Sent Events (SSE) to stream progress in real time.
 """
 
@@ -49,9 +50,9 @@ async def run_channel_explorer(
     Flow:
     1. Resolve channel info from @handle or channel ID
     2. Fetch recent videos (up to max_videos)
-    3. For each video: fetch ALL comments, label them
-    4. Aggregate results across all videos
-    5. Save ALL judi + (judi + 10) normal comments
+    3. For each video: fetch ALL comments, label per batch (streamed)
+    4. If video has judi → save immediately to DB (ALL judi + judi×1.5 normal)
+    5. Stream complete event with aggregate stats when all videos done
 
     SSE event types:
       - `channel_info_fetch`: resolving channel
@@ -60,17 +61,21 @@ async def run_channel_explorer(
       - `fetch_videos_done`: video list result
       - `video_start`: starting a video
       - `video_comments`: comments fetched for a video
-      - `video_done`: video processing result
       - `video_skip`: video skipped (error/no comments)
-      - `label_done`: overall labeling summary
-      - `sample`: sampling result
-      - `saving`: saving to database
-      - `complete`: final result with dataset & stats
+      - `label_progress`: per-batch labeling progress for current video
+      - `label_done`: per-video labeling summary
+      - `video_no_judi`: video has no judi, skipped
+      - `saving`: saving video comments to database
+      - `video_saved`: video comments saved successfully
+      - `complete`: all videos done with aggregate stats
       - `error`: error event
     """
     from app.core.services.channel_explorer_service import explore_channel_stream
 
     async def event_generator():
+        dataset = None
+        dataset_info = None
+        total_count = 0
         final_event = None
 
         try:
@@ -80,6 +85,71 @@ async def run_channel_explorer(
             ):
                 event_type = event.get("type", "progress")
 
+                # Intercept video_ready → save to DB immediately
+                if event_type == "video_ready":
+                    comments = event.get("comments", [])
+                    vid = event.get("video_id", "")
+                    vtitle = event.get("title", vid)
+                    channel_id = event.get("channel_id", "")
+                    channel_name = event.get("channel_name", payload.channel)
+                    video_judi = event.get("video_judi", 0)
+                    video_normal = event.get("video_normal", 0)
+
+                    yield f"event: saving\ndata: {json.dumps({'type': 'saving', 'message': f'Menyimpan {len(comments)} komentar dari \"{vtitle}\"...', 'video_id': vid}, ensure_ascii=False)}\n\n"
+
+                    try:
+                        # Create dataset lazily on first video with judi
+                        if dataset is None:
+                            name = payload.dataset_name or (
+                                f"Channel: {channel_name}"
+                            )
+                            ds_repo = DatasetRepository(db)
+                            dataset = await ds_repo.create(
+                                name=name,
+                                source=DataSource.YOUTUBE_API,
+                                description=f"Channel explorer '{channel_name}' — {payload.channel}",
+                                source_url=f"https://www.youtube.com/channel/{channel_id}",
+                                owner_id=current_user.id,
+                            )
+                            dataset_info = {
+                                "id": dataset.id,
+                                "name": dataset.name,
+                                "source": dataset.source.value,
+                                "source_url": dataset.source_url,
+                                "owner_id": dataset.owner_id,
+                                "created_at": dataset.created_at.isoformat(),
+                            }
+
+                        rows = []
+                        for c in comments:
+                            rows.append({
+                                "dataset_id": dataset.id,
+                                "video_id": c["video_id"],
+                                "title": c.get("title"),
+                                "channel_name": c.get("channel_name"),
+                                "date": c.get("date"),
+                                "author": c.get("author"),
+                                "comment": c.get("comment"),
+                                "label": None,
+                                "clean_comment": c.get("clean_comment"),
+                                "predicted_label": c.get("predicted_label"),
+                                "source": DataSource.YOUTUBE_API,
+                                "source_detail": f"explorer:channel:{channel_id}:{c['video_id']}",
+                            })
+
+                        c_repo = CommentRepository(db)
+                        count = await c_repo.bulk_create(rows)
+                        await db.commit()
+                        total_count += count
+
+                        yield f"event: video_saved\ndata: {json.dumps({'type': 'video_saved', 'message': f'Tersimpan {count} komentar dari \"{vtitle}\" ({video_judi} judi, {video_normal} normal)', 'video_id': vid, 'count': count, 'judi': video_judi, 'normal': video_normal, 'dataset_id': dataset.id}, ensure_ascii=False)}\n\n"
+
+                    except Exception as e:
+                        yield f"event: error\ndata: {json.dumps({'type': 'error', 'message': f'Gagal menyimpan video \"{vtitle}\": {e}'}, ensure_ascii=False)}\n\n"
+
+                    continue
+
+                # Capture final done event
                 if event_type == "done":
                     final_event = event
                     continue
@@ -94,98 +164,18 @@ async def run_channel_explorer(
             yield f"event: error\ndata: {json.dumps({'type': 'error', 'message': 'Explorer selesai tanpa hasil'}, ensure_ascii=False)}\n\n"
             return
 
-        comments = final_event.get("comments", [])
         stats = final_event.get("stats", {})
         message = final_event.get("message", "")
 
-        # No judi found → don't save
-        if not comments:
-            done_data = {
-                "type": "complete",
-                "saved": False,
-                "dataset": None,
-                "stats": stats,
-                "message": message,
-            }
-            yield f"event: complete\ndata: {json.dumps(done_data, ensure_ascii=False, default=str)}\n\n"
-            return
-
-        # Save to DB
-        yield f"event: saving\ndata: {json.dumps({'type': 'saving', 'message': f'Menyimpan {len(comments)} komentar ke database...'}, ensure_ascii=False)}\n\n"
-
-        try:
-            channel_name = stats.get("channel_name", payload.channel)
-            channel_id = stats.get("channel_id", "")
-            judi_pct = stats.get("judi_percentage", 0)
-
-            name = payload.dataset_name or (
-                f"Channel: {channel_name} ({stats.get('total_judi', 0)} judi, "
-                f"{stats.get('videos_processed', 0)} video)"
-            )
-
-            ds_repo = DatasetRepository(db)
-            dataset = await ds_repo.create(
-                name=name,
-                source=DataSource.YOUTUBE_API,
-                description=(
-                    f"Channel explorer '{channel_name}'. "
-                    f"Video diproses: {stats.get('videos_processed', 0)}/{stats.get('total_videos', 0)}, "
-                    f"Total komentar: {stats.get('total_fetched', 0)}, "
-                    f"Disimpan: {stats.get('total_saved', 0)} "
-                    f"({stats.get('total_judi', 0)} judi / {stats.get('total_normal', 0)} normal)."
-                ),
-                source_url=f"https://www.youtube.com/channel/{channel_id}",
-                owner_id=current_user.id,
-            )
-
-            rows = []
-            for c in comments:
-                rows.append({
-                    "dataset_id": dataset.id,
-                    "video_id": c["video_id"],
-                    "title": c.get("title"),
-                    "channel_name": c.get("channel_name"),
-                    "date": c.get("date"),
-                    "author": c.get("author"),
-                    "comment": c.get("comment"),
-                    "label": None,
-                    "clean_comment": c.get("clean_comment"),
-                    "predicted_label": c.get("predicted_label"),
-                    "source": DataSource.YOUTUBE_API,
-                    "source_detail": f"explorer:channel:{channel_id}:{c['video_id']}",
-                })
-
-            c_repo = CommentRepository(db)
-            count = await c_repo.bulk_create(rows)
-
-            # Explicit commit — get_db cleanup may not commit properly with SSE streaming
-            await db.commit()
-
-            dataset_info = {
-                "id": dataset.id,
-                "name": dataset.name,
-                "description": dataset.description,
-                "source": dataset.source.value,
-                "source_url": dataset.source_url,
-                "owner_id": dataset.owner_id,
-                "created_at": dataset.created_at.isoformat(),
-                "comment_count": count,
-            }
-
-        except Exception as e:
-            yield f"event: error\ndata: {json.dumps({'type': 'error', 'message': f'Gagal menyimpan ke database: {e}'}, ensure_ascii=False)}\n\n"
-            return
+        if dataset_info:
+            dataset_info["comment_count"] = total_count
 
         done_data = {
             "type": "complete",
-            "saved": True,
+            "saved": dataset is not None,
             "dataset": dataset_info,
             "stats": stats,
-            "message": (
-                f"Tersimpan! {count} komentar dari channel '{channel_name}'. "
-                f"Judi: {stats.get('total_judi', 0)} ({judi_pct}%), "
-                f"Normal: {stats.get('total_normal', 0)}."
-            ),
+            "message": message,
         }
         yield f"event: complete\ndata: {json.dumps(done_data, ensure_ascii=False, default=str)}\n\n"
 
@@ -198,3 +188,4 @@ async def run_channel_explorer(
             "X-Accel-Buffering": "no",
         },
     )
+
