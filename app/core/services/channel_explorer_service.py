@@ -221,7 +221,7 @@ async def explore_channel_stream(
         return
 
     sampled_judi = total_judi
-    desired_normal = total_judi + 10
+    desired_normal = total_judi + round(total_judi * 0.5)
     sampled_normal = min(total_normal_available, desired_normal)
 
     random.shuffle(all_normal)

@@ -1,7 +1,7 @@
 """YouTube Explorer endpoints.
 
 Takes a YouTube video ID, fetches ALL comments, labels them,
-and saves proportional judi/non-judi if any judi is found.
+and saves judi + (judi × 1.5) normal comments if any judi is found.
 Uses Server-Sent Events (SSE) to stream progress in real time.
 """
 
@@ -40,8 +40,8 @@ async def run_explorer(
     1. Fetch ALL comments from the video
     2. Label every comment with the model (progress streamed)
     3. If 0 judi found → not saved, returns info
-    4. If judi found → save proportionally (e.g. 40% judi = 40 judi + 60 normal from sample_size=100)
-    5. If 100% judi → save all judi up to sample_size
+    4. If judi found → save ALL judi + (judi × 1.5) normal
+       e.g. 86 judi → 86 judi + 129 normal = 215 total
 
     SSE event types:
       - `fetch_info`: getting video info

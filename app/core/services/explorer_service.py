@@ -31,8 +31,8 @@ async def explore_video_stream(
     1. Fetch ALL comments
     2. Label every comment with the model
     3. If 0 judi → yield done with no comments (don't save)
-    4. If judi found → save ALL judi + 40% of judi count as normal
-       e.g. 86 judi → 86 judi + 34 normal = 120
+    4. If judi found → save ALL judi + (judi × 1.5) normal
+       e.g. 86 judi → 86 judi + 129 normal = 215
 
     Yields progress events with {"type": "...", ...}
     Final event type is "done" with comments list and stats.
@@ -171,7 +171,7 @@ async def explore_video_stream(
         return
 
     sampled_judi = judi_count
-    desired_normal = judi_count + 10
+    desired_normal = judi_count + round(judi_count * 0.5)
     sampled_normal = min(normal_count, desired_normal)
 
     random.shuffle(normal_comments)
