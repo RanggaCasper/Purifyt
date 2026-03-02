@@ -2,9 +2,11 @@ import os
 from typing import Optional
 from functools import lru_cache
 
+from app.config.logging_config import get_logger
 from app.config.settings import get_settings
 from app.utils.text_cleaner import clean_comment
 
+logger = get_logger(__name__)
 settings = get_settings()
 
 MODEL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "model")
@@ -34,9 +36,11 @@ def _load_model():
             "Place your model files (config.json, model.safetensors, tokenizer, etc.) in the 'model/' folder."
         )
 
+    logger.info("[MODEL] Loading ML model from %s...", MODEL_DIR)
     _tokenizer = AutoTokenizer.from_pretrained(MODEL_DIR)
     _model = AutoModelForSequenceClassification.from_pretrained(MODEL_DIR)
     _model.eval()
+    logger.info("[MODEL] ML model loaded successfully")
 
 def predict(text: str) -> dict:
     """
@@ -66,6 +70,7 @@ def predict(text: str) -> dict:
     judi_prob = float(probs[1])
     label = 1 if judi_prob > normal_prob else 0  # 0 = non judi, 1 = judi online
 
+    logger.debug("[MODEL] predict — label=%d judi=%.3f normal=%.3f text=%.60s", label, judi_prob, normal_prob, text)
     return {"label": label, "clean_comment": cleaned, "normal": normal_prob, "judi": judi_prob}
 
 def predict_batch(texts: list[str]) -> list[dict]:
@@ -73,6 +78,7 @@ def predict_batch(texts: list[str]) -> list[dict]:
     import torch
 
     _load_model()
+    logger.info("[MODEL] predict_batch — %d texts", len(texts))
 
     # Clean all texts first
     cleaned_texts = [clean_comment(t) for t in texts]

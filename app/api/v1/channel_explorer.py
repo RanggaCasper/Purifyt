@@ -5,12 +5,14 @@ from pydantic import BaseModel, Field
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config.logging_config import get_logger
 from app.db.connection import get_db
 from app.db.models import DataSource
 from app.db.repositories.dataset_repository import DatasetRepository
 from app.db.repositories.comment_repository import CommentRepository
 from app.core.services.auth_service import get_current_user
 
+logger = get_logger(__name__)
 router = APIRouter(prefix="/explorer/channel", tags=["Explorer"])
 
 
@@ -63,6 +65,8 @@ async def run_channel_explorer(
       - `error`: error event
     """
     from app.core.services.channel_explorer_service import explore_channel_stream
+
+    logger.info("[CHANNEL_EXPLORER] Starting channel=%s max_videos=%d user_id=%d", payload.channel, payload.max_videos, current_user.id)
 
     async def event_generator():
         dataset = None

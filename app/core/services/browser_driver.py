@@ -1,4 +1,3 @@
-import logging
 import time
 from pathlib import Path
 
@@ -8,9 +7,10 @@ from selenium.webdriver.common.by import By
 from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.support.ui import WebDriverWait
 
+from app.config.logging_config import get_logger
 from app.core.services.cookie_manager import CookieManager, COOKIES_DIR, _sanitize_email_folder
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # URLs
 YOUTUBE_STUDIO_BASE = "https://studio.youtube.com"

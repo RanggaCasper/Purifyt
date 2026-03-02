@@ -1,10 +1,10 @@
 import json
-import logging
 from dataclasses import dataclass, field
 from typing import Generator, Optional
 
 from selenium import webdriver
 
+from app.config.logging_config import get_logger
 from app.core.services.cookie_manager import CookieManager
 from app.core.services.browser_driver import (
     create_driver,
@@ -16,7 +16,7 @@ from app.core.services.browser_driver import (
 )
 from app.core.services.youtube_studio_api import YouTubeStudioAPI
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def _detect_channel_name(driver) -> str | None:

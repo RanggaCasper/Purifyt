@@ -4,6 +4,7 @@ from typing import Optional, List, Literal
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config.logging_config import get_logger
 from app.db.connection import get_db
 from app.db.models import Comment
 from app.db.repositories.comment_repository import CommentRepository
@@ -11,6 +12,7 @@ from app.core.schemas import CommentResponse
 from app.core.services.auth_service import get_current_user
 from app.utils.response_formatter import APIResponse, success_response
 
+logger = get_logger(__name__)
 router = APIRouter(prefix="/labeling", tags=["Labeling"])
 
 
@@ -63,10 +65,13 @@ class BulkManualLabelResponse(BaseModel):
 async def predict_single(payload: PredictRequest):
     """Predict a single comment text."""
     from app.core.services.model_service import predict
+    logger.debug("[LABELING] Predict single text (len=%d)", len(payload.text))
     try:
         result = predict(payload.text)
     except (RuntimeError, FileNotFoundError) as e:
+        logger.error("[LABELING] Predict failed: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
+    logger.info("[LABELING] Predict result: label=%d judi=%.4f", result["label"], result["judi"])
     return success_response(data=PredictResponse(text=payload.text, **result))
 
 
@@ -74,10 +79,14 @@ async def predict_single(payload: PredictRequest):
 async def predict_batch(payload: BatchPredictRequest):
     """Predict a batch of comment texts."""
     from app.core.services.model_service import predict_batch as pb
+    logger.info("[LABELING] Predict batch count=%d", len(payload.texts))
     try:
         results = pb(payload.texts)
     except (RuntimeError, FileNotFoundError) as e:
+        logger.error("[LABELING] Batch predict failed: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
+    judi_count = sum(1 for r in results if r["label"] == 1)
+    logger.info("[LABELING] Batch done: %d total, %d judi detected", len(results), judi_count)
     return success_response(data=[PredictResponse(text=t, **r) for t, r in zip(payload.texts, results)])
 
 
@@ -94,12 +103,14 @@ async def label_dataset(
     """
     from app.core.services.model_service import predict_batch as pb
 
+    logger.info("[LABELING] Auto-label dataset_id=%d", dataset_id)
     result = await db.execute(
         select(Comment).where(Comment.dataset_id == dataset_id)
     )
     comments = result.scalars().all()
 
     if not comments:
+        logger.warning("[LABELING] No comments found for dataset_id=%d", dataset_id)
         raise HTTPException(status_code=404, detail="No comments found in this dataset")
 
     texts = [c.comment or "" for c in comments]
@@ -122,6 +133,7 @@ async def label_dataset(
     await db.flush()
 
     total = len(comments)
+    logger.info("[LABELING] Auto-label done dataset_id=%d total=%d judi=%d normal=%d", dataset_id, total, judi_count, normal_count)
     return success_response(
         data=LabelDatasetResponse(
             dataset_id=dataset_id,
@@ -147,9 +159,11 @@ async def manual_label_comment(
     Gunakan ini jika model salah prediksi (false positive/false negative).
     Field `label` yang diupdate, bukan `predicted_label`.
     """
+    logger.info("[LABELING] Manual label comment_id=%d label=%s", comment_id, payload.label)
     repo = CommentRepository(db)
     comment = await repo.update_label(comment_id, payload.label)
     if not comment:
+        logger.warning("[LABELING] Comment not found id=%d", comment_id)
         raise HTTPException(status_code=404, detail="Comment not found")
     await db.commit()
     return success_response(
@@ -180,9 +194,11 @@ async def reset_manual_label(
     _=Depends(get_current_user),
 ):
     """Reset label manual ke null (kembali hanya pakai predicted_label)."""
+    logger.info("[LABELING] Reset manual label comment_id=%d", comment_id)
     repo = CommentRepository(db)
     comment = await repo.update_label(comment_id, None)
     if not comment:
+        logger.warning("[LABELING] Comment not found id=%d", comment_id)
         raise HTTPException(status_code=404, detail="Comment not found")
     await db.commit()
     return success_response(message=f"Manual label for comment {comment_id} has been reset")
@@ -221,6 +237,7 @@ async def bulk_manual_label(
     updated = await repo.bulk_update_labels(updates)
     await db.commit()
 
+    logger.info("[LABELING] Bulk label dataset_id=%d updated=%d skipped=%d", dataset_id, updated, skipped)
     return success_response(
         data=BulkManualLabelResponse(updated_count=updated, skipped_count=skipped),
         message=f"{updated} comments updated, {skipped} skipped (not in dataset)",

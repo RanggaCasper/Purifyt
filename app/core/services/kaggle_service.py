@@ -3,8 +3,10 @@ from typing import List, Optional
 import pandas as pd
 from fastapi import HTTPException
 
+from app.config.logging_config import get_logger
 from app.config.settings import get_settings
 
+logger = get_logger(__name__)
 settings = get_settings()
 
 # Auto-detection: common CSV column names -> DB field names
@@ -45,6 +47,7 @@ class KaggleService:
         try:
             import kagglehub
         except ImportError:
+            logger.error("[KAGGLE] kagglehub not installed")
             raise HTTPException(
                 status_code=500,
                 detail="kagglehub is not installed. Run: pip install kagglehub",
@@ -52,7 +55,9 @@ class KaggleService:
 
         try:
             dataset_path = kagglehub.dataset_download(dataset_slug)
+            logger.info("[KAGGLE] Downloaded dataset '%s' → %s", dataset_slug, dataset_path)
         except Exception as e:
+            logger.error("[KAGGLE] Download failed for '%s': %s", dataset_slug, e)
             raise HTTPException(
                 status_code=400,
                 detail=f"Failed to download Kaggle dataset '{dataset_slug}': {e}",

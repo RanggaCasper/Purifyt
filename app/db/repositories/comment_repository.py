@@ -1,8 +1,11 @@
 from typing import Optional, List
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.config.logging_config import get_logger
 from app.db.models import Comment, DataSource
 from app.utils.text_cleaner import clean_comment as _clean_comment
+
+logger = get_logger(__name__)
 
 
 def _apply_clean_comment(data: dict) -> dict:
@@ -29,6 +32,7 @@ class CommentRepository:
         comments = [Comment(**_apply_clean_comment(data)) for data in comments_data]
         self.db.add_all(comments)
         await self.db.flush()
+        logger.debug("[COMMENT_REPO] bulk_create inserted %d comments", len(comments))
         return len(comments)
 
     async def get_by_id(self, comment_id: int) -> Optional[Comment]:
@@ -86,9 +90,11 @@ class CommentRepository:
     async def update_label(self, comment_id: int, label: Optional[str]) -> Optional[Comment]:
         comment = await self.get_by_id(comment_id)
         if not comment:
+            logger.warning("[COMMENT_REPO] update_label: comment_id=%d not found", comment_id)
             return None
         comment.label = label
         await self.db.flush()
+        logger.debug("[COMMENT_REPO] update_label comment_id=%d label=%s", comment_id, label)
         return comment
 
     async def bulk_update_labels(self, updates: List[dict]) -> int:
@@ -100,6 +106,7 @@ class CommentRepository:
                 comment.label = item["label"]
                 count += 1
         await self.db.flush()
+        logger.info("[COMMENT_REPO] bulk_update_labels updated=%d/%d", count, len(updates))
         return count
 
     async def delete_by_dataset(self, dataset_id: int) -> int:
@@ -108,6 +115,7 @@ class CommentRepository:
         for c in comments:
             await self.db.delete(c)
         await self.db.flush()
+        logger.info("[COMMENT_REPO] delete_by_dataset dataset_id=%d deleted=%d", dataset_id, count)
         return count
 
     async def reprocess_clean_comments(self, batch_size: int = 500) -> int:
@@ -131,4 +139,5 @@ class CommentRepository:
             await self.db.flush()
             total_updated += len(batch)
             offset += batch_size
+        logger.info("[COMMENT_REPO] reprocess_clean_comments updated=%d rows", total_updated)
         return total_updated

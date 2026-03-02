@@ -1,7 +1,10 @@
 from typing import Optional, List
 from sqlalchemy import select, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.config.logging_config import get_logger
 from app.db.models import CookieAccount
+
+logger = get_logger(__name__)
 
 
 class CookieAccountRepository:
@@ -25,6 +28,7 @@ class CookieAccountRepository:
                 existing.channel_name = channel_name
             await self.db.flush()
             await self.db.refresh(existing)
+            logger.info("[COOKIE_REPO] Updated cookie account email=%s cookies=%d", email, cookie_count)
             return existing
 
         account = CookieAccount(
@@ -37,6 +41,7 @@ class CookieAccountRepository:
         self.db.add(account)
         await self.db.flush()
         await self.db.refresh(account)
+        logger.info("[COOKIE_REPO] Created cookie account email=%s cookies=%d", email, cookie_count)
         return account
 
     async def get_by_email(self, email: str) -> Optional[CookieAccount]:
@@ -63,7 +68,9 @@ class CookieAccountRepository:
             delete(CookieAccount).where(CookieAccount.email == email)
         )
         await self.db.flush()
-        return result.rowcount > 0
+        deleted = result.rowcount > 0
+        logger.info("[COOKIE_REPO] delete_by_email email=%s deleted=%s", email, deleted)
+        return deleted
 
     async def deactivate(self, email: str) -> bool:
         result = await self.db.execute(

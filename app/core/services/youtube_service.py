@@ -4,8 +4,10 @@ from typing import List, Optional
 import httpx
 from fastapi import HTTPException
 
+from app.config.logging_config import get_logger
 from app.config.settings import get_settings
 
+logger = get_logger(__name__)
 settings = get_settings()
 BASE_URL = "https://www.googleapis.com/youtube/v3"
 
@@ -22,6 +24,7 @@ class YouTubeService:
         self, query: str, max_results: int = 5
     ) -> List[dict]:
         """Return a list of {video_id, title, channel_name, published_at}."""
+        logger.info("[YOUTUBE] Searching videos — query='%s' max_results=%d", query, max_results)
         params = {
             "part": "snippet",
             "q": query,
@@ -58,6 +61,7 @@ class YouTubeService:
         Return a list of comment dicts ready for DB insertion.
         If max_results is None, fetch ALL available comments.
         """
+        logger.info("[YOUTUBE] Fetching comments — video_id=%s max_results=%s", video_id, max_results)
         # First get video details
         video_info = await self._get_video_info(video_id)
 

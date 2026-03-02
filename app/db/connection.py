@@ -1,8 +1,10 @@
 from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
+from app.config.logging_config import get_logger
 from app.config.settings import get_settings
 
+logger = get_logger(__name__)
 settings = get_settings()
 
 engine = create_async_engine(
@@ -29,7 +31,8 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
         try:
             yield session
             await session.commit()
-        except Exception:
+        except Exception as e:
+            logger.error("[DB] Session rollback triggered: %s", e)
             await session.rollback()
             raise
         finally:
@@ -37,5 +40,7 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 
 
 async def create_tables():
+    logger.info("[DB] Creating/verifying database tables...")
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    logger.info("[DB] Database tables ready")

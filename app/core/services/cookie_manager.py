@@ -1,12 +1,13 @@
 import json
-import logging
 import re
 from pathlib import Path
 from typing import Optional
 
 from selenium import webdriver
 
-logger = logging.getLogger(__name__)
+from app.config.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 # Default cookie root
 _ROOT_DIR = Path(__file__).resolve().parent.parent.parent.parent

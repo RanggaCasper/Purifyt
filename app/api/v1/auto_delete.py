@@ -1,4 +1,3 @@
-import logging
 from typing import Optional, List
 
 from fastapi import APIRouter, Depends
@@ -6,11 +5,12 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config.logging_config import get_logger
 from app.db.connection import get_db
 from app.db.repositories.cookie_account_repository import CookieAccountRepository
 from app.utils.response_formatter import APIResponse, success_response, error_response
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/auto-delete", tags=["Auto Delete"])
 
@@ -197,6 +197,7 @@ async def login_google(payload: LoginRequest):
     """
     from app.core.services.auto_delete_service import AutoDeleteService
 
+    logger.info("[AUTO_DELETE] Login request email=%s headless=%s", payload.email, payload.headless)
     return _sse_response(
         AutoDeleteService.login_stream(
             email=payload.email,
@@ -222,6 +223,7 @@ async def scan_and_delete(payload: ScanRequest):
       - `done`          — final summary
       - `error`         — error message
     """
+    logger.info("[AUTO_DELETE] Scan+delete video_id=%s email=%s threshold=%.2f", payload.video_id, payload.email, payload.threshold)
     return _sse_response(_run_scan_stream(payload, dry_run=False))
 
 
@@ -230,6 +232,7 @@ async def scan_preview(payload: ScanRequest):
     """
     Scan a video without deleting / dry-run (SSE stream).
     """
+    logger.info("[AUTO_DELETE] Scan preview video_id=%s email=%s threshold=%.2f", payload.video_id, payload.email, payload.threshold)
     return _sse_response(_run_scan_stream(payload, dry_run=True))
 
 
@@ -243,6 +246,7 @@ async def delete_comments(payload: DeleteRequest):
       - `done`   — {deleted, requested, message}
       - `error`  — error message
     """
+    logger.info("[AUTO_DELETE] Delete %d comments video_id=%s email=%s", len(payload.comment_ids), payload.video_id, payload.email)
     return _sse_response(_run_delete_stream(payload))
 
 
@@ -257,6 +261,7 @@ async def fetch_comments(payload: FetchCommentsRequest):
       - `done`   — {video_id, total, comments, message}
       - `error`  — error message
     """
+    logger.info("[AUTO_DELETE] Fetch comments video_id=%s email=%s", payload.video_id, payload.email)
     return _sse_response(_run_fetch_comments_stream(payload))
 
 
@@ -289,6 +294,7 @@ async def list_cookies(db: AsyncSession = Depends(get_db)):
             "updated_at": acc.updated_at.isoformat() if acc.updated_at else None,
         })
 
+    logger.info("[AUTO_DELETE] List cookies: %d accounts found", len(data))
     return success_response(
         data={"accounts": data, "total": len(data)},
         message=f"{len(data)} akun cookie ditemukan",
@@ -352,6 +358,7 @@ async def delete_cookie_account(email: str, db: AsyncSession = Depends(get_db)):
     if not account:
         return error_response(message=f"Cookie untuk {email} tidak ditemukan")
 
+    logger.info("[AUTO_DELETE] Deleted cookie email=%s file=%s db=%s", email, file_deleted, db_deleted)
     return success_response(
         data={
             "email": email,

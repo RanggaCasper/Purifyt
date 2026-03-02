@@ -5,6 +5,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config.logging_config import get_logger
 from app.config.settings import get_settings
 from app.db.connection import get_db
 from app.db.repositories.user_repository import UserRepository
@@ -22,6 +23,7 @@ from app.core.services.auth_service import (
     REFRESH_COOKIE_NAME,
 )
 
+logger = get_logger(__name__)
 settings = get_settings()
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -79,6 +81,7 @@ async def register(payload: UserCreate, db: AsyncSession = Depends(get_db)):
         email=payload.email,
         hashed_password=hash_password(payload.password),
     )
+    logger.info("[AUTH] User registered — id=%d username=%s", user.id, user.username)
     return success_response(
         data=UserResponse.model_validate(user),
         message="User registered successfully",
@@ -109,6 +112,7 @@ async def login(
         raise HTTPException(status_code=400, detail="Provide email or username")
 
     if not user or not verify_password(payload.password, user.hashed_password):
+        logger.warning("[AUTH] Login failed — incorrect credentials for email=%s username=%s", payload.email, payload.username)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect credentials",
@@ -122,6 +126,7 @@ async def login(
         db=db,
         request=request,
     )
+    logger.info("[AUTH] Login successful — user_id=%d username=%s", user.id, user.username)
     return success_response(data=tokens, message="Login successful")
 
 
@@ -196,6 +201,7 @@ async def refresh(
 
     # rotation: revoke old, issue new 
     await rt_repo.revoke(token_row.id)
+    logger.info("[AUTH] Token refreshed — user_id=%d old_token_id=%d", user.id, token_row.id)
 
     tokens = await _issue_tokens(
         user_id=user.id,
@@ -226,6 +232,7 @@ async def logout(
         await rt_repo.revoke_by_raw_token(raw_token)
 
     delete_refresh_cookie(response)
+    logger.info("[AUTH] User logged out")
     return None  # 204 No Content
 
 

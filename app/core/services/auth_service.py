@@ -9,10 +9,12 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config.logging_config import get_logger
 from app.config.settings import get_settings
 from app.db.connection import get_db
 from app.db.repositories.user_repository import UserRepository
 
+logger = get_logger(__name__)
 settings = get_settings()
 
 # password hashing 
@@ -50,6 +52,7 @@ def create_access_token(
         "jti": str(uuid.uuid4()),
     }
     token = jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    logger.debug("[AUTH] Access token created for user_id=%d, expires_in=%ds", user_id, int(delta.total_seconds()))
     return token, int(delta.total_seconds())
 
 def decode_access_token(token: str) -> dict:
@@ -109,10 +112,13 @@ async def get_current_user(
             raise credentials_exc
         user_id = int(user_id_str)
     except (JWTError, ValueError):
+        logger.warning("[AUTH] Invalid access token presented")
         raise credentials_exc
 
     repo = UserRepository(db)
     user = await repo.get_by_id(user_id)
     if user is None:
+        logger.warning("[AUTH] Token valid but user_id=%d not found in DB", user_id)
         raise credentials_exc
+    logger.debug("[AUTH] Authenticated user_id=%d username=%s", user.id, user.username)
     return user

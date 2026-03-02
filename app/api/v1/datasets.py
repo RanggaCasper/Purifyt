@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config.logging_config import get_logger
 from app.db.connection import get_db
 from app.db.models import DataSource
 from app.db.repositories.dataset_repository import DatasetRepository
@@ -15,6 +16,7 @@ from app.core.schemas import (
 from app.core.services.auth_service import get_current_user
 from app.utils.response_formatter import APIResponse, success_response, paginated_response
 
+logger = get_logger(__name__)
 router = APIRouter(prefix="/datasets", tags=["Datasets"])
 
 
@@ -25,6 +27,7 @@ async def list_datasets(
     source: str = Query(None, description="Filter by source: youtube_api, kaggle, manual"),
     db: AsyncSession = Depends(get_db),
 ):
+    logger.info("[DATASETS] List datasets — page=%d per_page=%d source=%s", page, per_page, source)
     repo = DatasetRepository(db)
     comment_repo = CommentRepository(db)
     ds_source = DataSource(source) if source else None
@@ -99,6 +102,7 @@ async def delete_dataset(
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
 ):
+    logger.info("[DATASETS] Delete dataset_id=%d", dataset_id)
     repo = DatasetRepository(db)
     deleted = await repo.delete(dataset_id)
     if not deleted:

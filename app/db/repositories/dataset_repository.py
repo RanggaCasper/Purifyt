@@ -2,7 +2,10 @@ from typing import Optional, List
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+from app.config.logging_config import get_logger
 from app.db.models import Dataset, DataSource
+
+logger = get_logger(__name__)
 
 
 class DatasetRepository:
@@ -27,6 +30,7 @@ class DatasetRepository:
         self.db.add(dataset)
         await self.db.flush()
         await self.db.refresh(dataset)
+        logger.info("[DATASET_REPO] Created dataset id=%d name='%s' source=%s", dataset.id, dataset.name, source.value)
         return dataset
 
     async def get_by_id(self, dataset_id: int) -> Optional[Dataset]:
@@ -59,5 +63,7 @@ class DatasetRepository:
         if dataset:
             await self.db.delete(dataset)
             await self.db.flush()
+            logger.info("[DATASET_REPO] Deleted dataset id=%d", dataset_id)
             return True
+        logger.warning("[DATASET_REPO] Delete failed: dataset_id=%d not found", dataset_id)
         return False

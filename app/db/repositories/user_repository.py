@@ -1,7 +1,10 @@
 from typing import Optional, List
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.config.logging_config import get_logger
 from app.db.models import User
+
+logger = get_logger(__name__)
 
 
 class UserRepository:
@@ -17,6 +20,7 @@ class UserRepository:
         self.db.add(user)
         await self.db.flush()
         await self.db.refresh(user)
+        logger.info("[USER_REPO] Created user id=%d username='%s'", user.id, user.username)
         return user
 
     async def get_by_id(self, user_id: int) -> Optional[User]:

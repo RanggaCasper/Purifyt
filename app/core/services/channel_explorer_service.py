@@ -1,11 +1,11 @@
 ﻿import asyncio
 import random
-import logging
 from typing import AsyncGenerator, List
 
+from app.config.logging_config import get_logger
 from app.core.services.youtube_service import YouTubeService
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 async def _predict_batch_async(texts: list[str]) -> list[dict]:
     """Run the synchronous predict_batch in a thread so it doesn't block the event loop."""

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config.logging_config import get_logger
 from app.db.connection import get_db
 from app.db.models import DataSource
 from app.db.repositories.dataset_repository import DatasetRepository
@@ -15,6 +16,7 @@ from app.core.services.youtube_service import YouTubeService
 from app.core.services.auth_service import get_current_user
 from app.utils.response_formatter import APIResponse, success_response
 
+logger = get_logger(__name__)
 router = APIRouter(prefix="/youtube", tags=["YouTube"])
 
 
@@ -76,6 +78,10 @@ async def import_youtube_comments(
     c_repo = CommentRepository(db)
     count = await c_repo.bulk_create(comment_rows)
 
+    logger.info(
+        "[YOUTUBE] Imported %d comments — video_id=%s dataset_id=%d",
+        count, video_id, dataset.id,
+    )
     return success_response(
         data=DatasetResponse(
             id=dataset.id,

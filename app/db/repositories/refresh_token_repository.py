@@ -5,7 +5,10 @@ from typing import Optional
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config.logging_config import get_logger
 from app.db.models import RefreshToken
+
+logger = get_logger(__name__)
 
 
 def hash_token(raw_token: str) -> str:
@@ -38,6 +41,7 @@ class RefreshTokenRepository:
         self.db.add(row)
         await self.db.flush()
         await self.db.refresh(row)
+        logger.debug("[TOKEN_REPO] Created refresh token id=%d user_id=%d", row.id, user_id)
         return row
 
     # lookup 
@@ -63,6 +67,7 @@ class RefreshTokenRepository:
             .values(revoked_at=datetime.now(timezone.utc))
         )
         await self.db.flush()
+        logger.debug("[TOKEN_REPO] Revoked token id=%d", token_id)
 
     async def revoke_all_for_user(self, user_id: int) -> int:
         """Revoke every active refresh token for a user (logout-all)."""
@@ -76,6 +81,7 @@ class RefreshTokenRepository:
             .values(revoked_at=now)
         )
         await self.db.flush()
+        logger.info("[TOKEN_REPO] Revoked all tokens for user_id=%d count=%d", user_id, result.rowcount)
         return result.rowcount
 
     async def revoke_by_raw_token(self, raw_token: str) -> bool:

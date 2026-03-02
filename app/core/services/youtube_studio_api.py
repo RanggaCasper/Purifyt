@@ -1,5 +1,4 @@
 import json
-import logging
 import os
 import time
 from datetime import datetime
@@ -16,13 +15,14 @@ from selenium.common.exceptions import (
     ElementClickInterceptedException,
 )
 
+from app.config.logging_config import get_logger
 from app.core.services.browser_driver import (
     wait_page_ready,
     YOUTUBE_STUDIO_VIDEO_COMMENTS,
     YOUTUBE_STUDIO_COMMENTS,
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Timing
 ACTION_DELAY = 1.5
