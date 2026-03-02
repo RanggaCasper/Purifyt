@@ -1,12 +1,3 @@
-"""YouTube Explorer service.
-
-Takes a YouTube video ID, fetches ALL comments, labels them with the model,
-and returns proportional judi/non-judi results.
-Only saves if at least 1 judi comment is found.
-
-Uses async generator to stream progress events in real time.
-"""
-
 import asyncio
 import random
 import logging
@@ -16,12 +7,10 @@ from app.core.services.youtube_service import YouTubeService
 
 logger = logging.getLogger(__name__)
 
-
 async def _predict_batch_async(texts: list[str]) -> list[dict]:
     """Run the synchronous predict_batch in a thread so it doesn't block the event loop."""
     from app.core.services.model_service import predict_batch
     return await asyncio.to_thread(predict_batch, texts)
-
 
 async def explore_video_stream(
     video_id: str,
@@ -204,7 +193,6 @@ async def explore_video_stream(
         ),
     }
 
-
 def _done_empty(video_id: str, reason: str) -> dict:
     """Helper to yield a done event with no comments."""
     return {
@@ -213,7 +201,6 @@ def _done_empty(video_id: str, reason: str) -> dict:
         "stats": _build_stats(video_id, "", "", 0, 0, 0, 0),
         "message": reason,
     }
-
 
 def _build_stats(
     video_id: str,
@@ -234,4 +221,3 @@ def _build_stats(
         "total_saved": total_saved,
         "judi_percentage": round((judi_count / total_saved) * 100, 2) if total_saved > 0 else 0,
     }
-

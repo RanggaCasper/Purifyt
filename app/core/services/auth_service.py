@@ -1,25 +1,10 @@
-"""
-Authentication service – JWT access tokens + opaque refresh tokens.
-
-Access token  : short-lived JWT  (header  Authorization: Bearer <token>)
-Refresh token : long-lived opaque (HttpOnly cookie, SHA-256 hashed in DB)
-
-Functions exposed:
-  - hash_password / verify_password
-  - create_access_token
-  - generate_refresh_token   (opaque string)
-  - decode_access_token
-  - get_current_user          (FastAPI dependency)
-  - set_refresh_cookie / delete_refresh_cookie   (helpers for Response)
-"""
-
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import Depends, HTTPException, Response, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,23 +18,19 @@ settings = get_settings()
 # password hashing 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-
 def hash_password(password: str) -> str:
     return pwd_context.hash(password)
-
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
-
 # JWT (access token only) 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login/form")
+oauth2_scheme = HTTPBearer()
 
 # Cookie path must match the endpoint prefix so the browser sends the cookie
 # only to /api/v1/auth/* routes.
 REFRESH_COOKIE_NAME = "refresh_token"
 REFRESH_COOKIE_PATH = "/api/v1/auth"
-
 
 def create_access_token(
     user_id: int,
@@ -71,7 +52,6 @@ def create_access_token(
     token = jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return token, int(delta.total_seconds())
 
-
 def decode_access_token(token: str) -> dict:
     """Decode & validate an access JWT.  Raises JWTError on failure."""
     payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
@@ -79,12 +59,10 @@ def decode_access_token(token: str) -> dict:
         raise JWTError("Not an access token")
     return payload
 
-
 # Opaque refresh token 
 def generate_refresh_token() -> str:
     """Generate a cryptographically secure random token (64 bytes, URL-safe)."""
     return secrets.token_urlsafe(64)
-
 
 # Cookie helpers 
 def set_refresh_cookie(response: Response, raw_token: str) -> None:
@@ -101,7 +79,6 @@ def set_refresh_cookie(response: Response, raw_token: str) -> None:
         domain=settings.COOKIE_DOMAIN,
     )
 
-
 def delete_refresh_cookie(response: Response) -> None:
     """Expire / delete the refresh-token cookie."""
     response.delete_cookie(
@@ -113,13 +90,13 @@ def delete_refresh_cookie(response: Response) -> None:
         domain=settings.COOKIE_DOMAIN,
     )
 
-
 # FastAPI dependency: get current user from Bearer token 
 async def get_current_user(
-    token: str = Depends(oauth2_scheme),
+    credentials: HTTPAuthorizationCredentials = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db),
 ):
     """Validate the access JWT in the Authorization header and return the User object."""
+    token = credentials.credentials
     credentials_exc = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",

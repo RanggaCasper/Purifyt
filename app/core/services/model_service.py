@@ -1,5 +1,3 @@
-"""Model prediction service for auto-labeling comments (judi/normal)."""
-
 import os
 from typing import Optional
 from functools import lru_cache
@@ -14,7 +12,6 @@ MODEL_DIR = os.path.normpath(MODEL_DIR)
 
 _tokenizer = None
 _model = None
-
 
 def _load_model():
     global _tokenizer, _model
@@ -40,7 +37,6 @@ def _load_model():
     _tokenizer = AutoTokenizer.from_pretrained(MODEL_DIR)
     _model = AutoModelForSequenceClassification.from_pretrained(MODEL_DIR)
     _model.eval()
-
 
 def predict(text: str) -> dict:
     """
@@ -71,7 +67,6 @@ def predict(text: str) -> dict:
     label = 1 if judi_prob > normal_prob else 0  # 0 = non judi, 1 = judi online
 
     return {"label": label, "clean_comment": cleaned, "normal": normal_prob, "judi": judi_prob}
-
 
 def predict_batch(texts: list[str]) -> list[dict]:
     """Predict labels for a batch of texts."""

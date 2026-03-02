@@ -1,13 +1,4 @@
-"""YouTube Channel Explorer service.
-
-Takes a YouTube channel ID or @handle, fetches recent videos,
-then explores each video's comments — labels them and saves
-immediately when judi is found (per video).
-
-Uses async generator to stream progress events in real time.
-"""
-
-import asyncio
+﻿import asyncio
 import random
 import logging
 from typing import AsyncGenerator, List
@@ -16,12 +7,10 @@ from app.core.services.youtube_service import YouTubeService
 
 logger = logging.getLogger(__name__)
 
-
 async def _predict_batch_async(texts: list[str]) -> list[dict]:
     """Run the synchronous predict_batch in a thread so it doesn't block the event loop."""
     from app.core.services.model_service import predict_batch
     return await asyncio.to_thread(predict_batch, texts)
-
 
 async def explore_channel_stream(
     channel_input: str,
@@ -144,7 +133,7 @@ async def explore_channel_stream(
             "comment_count": comment_count,
         }
 
-        # Label comments per batch with progress events
+        # Run labeling in batches and stream progress after each batch
         texts = [c["comment"] or "" for c in raw_comments]
         predictions: list[dict] = []
         batch_size = 32
@@ -155,7 +144,7 @@ async def explore_channel_stream(
             try:
                 batch_preds = await _predict_batch_async(batch_texts)
             except Exception as e:
-                logger.warning(f"Batch failed for video {vid}: {e}, labeling individually...")
+                logger.warning(f"Batch prediction failed for video {vid}: {e}, falling back to per-item labeling...")
                 batch_preds = []
                 for txt in batch_texts:
                     try:
@@ -175,7 +164,7 @@ async def explore_channel_stream(
                 "percentage": round((labeled / comment_count) * 100, 1),
             }
 
-        # Separate judi vs normal for this video
+        # Split results into gambling and non-gambling buckets
         judi_comments: List[dict] = []
         normal_comments: List[dict] = []
 
@@ -215,7 +204,7 @@ async def explore_channel_stream(
             }
             continue
 
-        # Sample: ALL judi + judi x1.5 normal
+        # Keep all gambling comments plus a proportional sample of normal ones (1.5x the gambling count)
         desired_normal = video_judi + round(video_judi * 0.5)
         sampled_normal_count = min(video_normal, desired_normal)
         random.shuffle(normal_comments)
@@ -226,8 +215,8 @@ async def explore_channel_stream(
         total_normal_saved += sampled_normal_count
         total_saved += len(sampled)
 
-        # Yield video_ready -- endpoint intercepts this, saves to DB immediately,
-        # then emits saving / video_saved SSE events to the client.
+        # Hand off to the endpoint — it will save these comments to the DB right away
+        # and then forward saving/video_saved SSE events back to the client.
         yield {
             "type": "video_ready",
             "message": (
@@ -262,7 +251,6 @@ async def explore_channel_stream(
         ),
     }
 
-
 def _done_empty(channel_input: str, reason: str) -> dict:
     return {
         "type": "done",
@@ -270,7 +258,6 @@ def _done_empty(channel_input: str, reason: str) -> dict:
         "stats": _build_channel_stats(channel_input, "", 0, 0, 0, 0, 0, 0),
         "message": reason,
     }
-
 
 def _build_channel_stats(
     channel_id: str,

@@ -1,11 +1,3 @@
-"""YouTube Channel Explorer endpoints.
-
-Takes a YouTube channel (@handle or ID), fetches recent videos,
-labels comments per batch (streamed), and saves per video immediately
-when judi is found — no waiting until the end.
-Uses Server-Sent Events (SSE) to stream progress in real time.
-"""
-
 import json
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse

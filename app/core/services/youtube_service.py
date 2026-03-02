@@ -1,5 +1,3 @@
-"""YouTube Data API v3 service: search videos and fetch comments."""
-
 import re
 from datetime import datetime
 from typing import List, Optional
@@ -10,7 +8,6 @@ from app.config.settings import get_settings
 
 settings = get_settings()
 BASE_URL = "https://www.googleapis.com/youtube/v3"
-
 
 class YouTubeService:
     def __init__(self):

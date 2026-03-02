@@ -1,10 +1,3 @@
-"""
-Repository for refresh-token CRUD.
-
-Tokens are stored as SHA-256 hashes so that a DB leak does not
-directly expose usable tokens.
-"""
-
 import hashlib
 from datetime import datetime, timezone
 from typing import Optional

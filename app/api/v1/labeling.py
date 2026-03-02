@@ -1,5 +1,3 @@
-"""Auto-labeling endpoints using the judi/normal classification model."""
-
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from typing import Optional, List, Literal

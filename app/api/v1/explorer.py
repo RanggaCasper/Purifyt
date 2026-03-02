@@ -1,10 +1,3 @@
-"""YouTube Explorer endpoints.
-
-Takes a YouTube video ID, fetches ALL comments, labels them,
-and saves judi + (judi × 1.5) normal comments if any judi is found.
-Uses Server-Sent Events (SSE) to stream progress in real time.
-"""
-
 import json
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse

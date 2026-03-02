@@ -1,10 +1,3 @@
-"""
-Auth endpoints – login, refresh (cookie-based), logout, me.
-
-Refresh tokens live **only** in HttpOnly cookies.
-Access tokens are returned in JSON and sent via Authorization: Bearer header.
-"""
-
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status

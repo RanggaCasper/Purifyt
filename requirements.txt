@@ -27,6 +27,9 @@ transformers>=4.40
 torch>=2.0
 emoji>=2.0
 
+# Selenium (auto-delete YouTube comments)
+selenium>=4.20
+
 # Dev / Test
 pytest==8.*
 pytest-asyncio==0.24.*

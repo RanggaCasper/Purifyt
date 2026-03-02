@@ -1,17 +1,3 @@
-"""
-Integration tests for the complete authentication flow.
-
-Covers the user's testing checklist:
-  1. Login      → refresh cookie set, access_token received
-  2. Protected  → access_token works on /auth/me
-  3. Expired AT → protected returns 401
-  4. Refresh    → new access_token + rotated refresh cookie
-  5. Logout     → cookie cleared + token revoked in DB
-  6. Stale RT   → refresh with old (rotated) token returns 401
-
-All DB interactions are mocked so these tests run without MySQL.
-"""
-
 from __future__ import annotations
 
 import hashlib

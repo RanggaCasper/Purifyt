@@ -1,9 +1,3 @@
-"""
-Script to re-apply clean_comment() to all existing comments in the database.
-
-Usage:
-    python scripts/reprocess_clean_comments.py
-"""
 import asyncio
 import sys
 import os

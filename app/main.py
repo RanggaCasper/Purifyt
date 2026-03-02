@@ -1,4 +1,7 @@
+import asyncio
+import logging
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -9,13 +12,25 @@ from app.db.connection import create_tables
 from app.api.router import api_router
 from app.utils.response_formatter import error_response
 
+logger = logging.getLogger(__name__)
 settings = get_settings()
+
+
+def _preload_ml_model():
+    """Load ML model di background thread saat startup."""
+    try:
+        from app.core.services.model_service import _load_model
+        _load_model()
+        logger.info("ML model berhasil dimuat di background.")
+    except Exception as e:
+        logger.warning(f"Gagal preload ML model (akan dimuat saat pertama kali dipakai): {e}")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: create tables
+    # Startup: create tables + preload ML model in background
     await create_tables()
+    asyncio.get_event_loop().run_in_executor(None, _preload_ml_model)
     yield
     # Shutdown: nothing to clean up
 

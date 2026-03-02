@@ -13,7 +13,14 @@ venv/
 .vscode/
 *.log
 kaggle_temp/
+.pytest_cache/
+
+# Cookies & logs (Selenium auto-delete)
+cookies/
+logs/
 
 # Ignore all files in the model directory except .gitkeep
 !model/.gitkeep
-model/*
+model/*.json
+model/*.bin
+model/*.safetensors

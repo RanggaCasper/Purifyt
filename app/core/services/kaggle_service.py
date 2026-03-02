@@ -1,9 +1,3 @@
-"""Kaggle dataset import service.
-
-Downloads a Kaggle dataset using kagglehub, reads the CSV and auto-maps
-columns to our Comment model.
-"""
-
 import os
 from typing import List, Optional
 import pandas as pd
@@ -28,7 +22,6 @@ DEFAULT_COLUMN_MAP = {
     "komentar_clean": "clean_comment",
     "predicted_label": "predicted_label",
 }
-
 
 class KaggleService:
     def __init__(self):

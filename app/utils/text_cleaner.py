@@ -1,5 +1,3 @@
-"""Utility functions for cleaning comment text."""
-
 import re
 import unicodedata
 

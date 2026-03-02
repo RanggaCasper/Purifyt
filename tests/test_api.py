@@ -1,12 +1,9 @@
-"""Comprehensive tests for the Purifyt API."""
-
 import pytest
 from unittest.mock import patch, MagicMock, AsyncMock
 from httpx import AsyncClient, ASGITransport
 from app.main import app
 from app.utils.text_cleaner import clean_comment
 from app.core.services.model_service import predict, predict_batch
-
 
 # Fixtures 
 
