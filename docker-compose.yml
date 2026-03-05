@@ -2,7 +2,7 @@ version: "3.9"
 
 services:
   purifyt_app:
-    image: ghcr.io/${GITHUB_REPOSITORY_OWNER}/purifyt:latest
+    image: ${GHCR_IMAGE:-ghcr.io/ranggacasper/purifyt:latest}
     container_name: purifyt_app
     restart: unless-stopped
     # Port tidak di-expose langsung — hanya diakses via nginx

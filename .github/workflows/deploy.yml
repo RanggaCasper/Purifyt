@@ -25,6 +25,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Set lowercase image name
+        id: image
+        run: echo "name=$(echo '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -36,7 +40,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ steps.image.outputs.name }}
           tags: |
             type=sha,prefix=sha-,format=short
             type=raw,value=latest,enable={{is_default_branch}}
@@ -118,7 +122,12 @@ jobs:
               -u ${{ github.actor }} --password-stdin
 
             # ── Pull image terbaru dan restart ─────────────────────────────
-            docker pull ghcr.io/${{ env.IMAGE_NAME }}:latest
+            # Lowercase wajib untuk Docker image name
+            IMAGE=$(echo "ghcr.io/${{ env.IMAGE_NAME }}:latest" | tr '[:upper:]' '[:lower:]')
+            docker pull "$IMAGE"
+
+            # Set IMAGE di docker-compose.yml via env
+            export GHCR_IMAGE="$IMAGE"
 
             docker compose down --remove-orphans
             docker compose up -d
