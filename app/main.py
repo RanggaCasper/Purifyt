@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config.logging_config import setup_logging, get_logger
 from app.config.settings import get_settings
-from app.db.connection import create_tables
+from app.db.connection import create_tables, engine
 from app.api.router import api_router
 from app.utils.response_formatter import error_response
 
@@ -39,6 +39,8 @@ async def lifespan(app: FastAPI):
     yield
     # Shutdown
     logger.info("[SHUTDOWN] Purifyt shutting down...")
+    await engine.dispose()
+    logger.info("[SHUTDOWN] Database connection pool closed")
 
 
 app = FastAPI(

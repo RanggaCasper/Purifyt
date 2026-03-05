@@ -11,8 +11,11 @@ from app.core.schemas import (
     YouTubeVideoInfo,
     DatasetResponse,
     MessageResponse,
+    ScannedComment,
+    YouTubeScanResponse,
 )
 from app.core.services.youtube_service import YouTubeService
+from app.core.services.model_service import predict_batch
 from app.core.services.auth_service import get_current_user
 from app.utils.response_formatter import APIResponse, success_response
 
@@ -54,7 +57,7 @@ async def import_youtube_comments(
         video_id = videos[0]["video_id"]
 
     # Fetch comments (None = fetch all available)
-    comment_rows = await service.fetch_comments(video_id, max_results=payload.max_results)
+    comment_rows = await service.fetch_comments(video_id)
     if not comment_rows:
         raise HTTPException(status_code=404, detail="No comments found for this video")
 
@@ -94,4 +97,67 @@ async def import_youtube_comments(
             comment_count=count,
         ),
         message="YouTube comments imported successfully",
+    )
+
+
+@router.post("/scan", response_model=APIResponse)
+async def scan_youtube_comments(
+    payload: YouTubeSearchRequest,
+    current_user=Depends(get_current_user),
+):
+    """
+    Fetch YouTube comments and run spam/judi prediction WITHOUT saving to the database.
+
+    - If `video_id` is provided, fetch comments directly.
+    - Otherwise, search for the query and use the first result.
+    - Returns each comment with its predicted label and confidence scores.
+    """
+    service = YouTubeService()
+
+    video_id = payload.video_id
+    if not video_id:
+        videos = await service.search_videos(payload.query, max_results=1)
+        if not videos:
+            raise HTTPException(status_code=404, detail="No videos found for query")
+        video_id = videos[0]["video_id"]
+
+    comment_rows = await service.fetch_comments(video_id)
+    if not comment_rows:
+        raise HTTPException(status_code=404, detail="No comments found for this video")
+
+    # Run batch prediction (no DB interaction)
+    texts = [row.get("comment") or "" for row in comment_rows]
+    predictions = predict_batch(texts)
+
+    scanned = [
+        ScannedComment(
+            author=row.get("author"),
+            commentId=row.get("commentId"),
+            comment=row.get("comment"),
+            clean_comment=pred["clean_comment"],
+            predicted_label=pred["label"],
+            confidence_normal=pred["normal"],
+            confidence_judi=pred["judi"],
+        )
+        for row, pred in zip(comment_rows, predictions)
+    ]
+
+    judi_count = sum(1 for s in scanned if s.predicted_label == 1)
+    normal_count = len(scanned) - judi_count
+
+    logger.info(
+        "[YOUTUBE] Scan complete — video_id=%s total=%d judi=%d normal=%d",
+        video_id, len(scanned), judi_count, normal_count,
+    )
+    return success_response(
+        data=YouTubeScanResponse(
+            video_id=video_id,
+            title=comment_rows[0].get("title"),
+            channel_name=comment_rows[0].get("channel_name"),
+            total_comments=len(scanned),
+            judi_count=judi_count,
+            normal_count=normal_count,
+            comments=scanned,
+        ),
+        message=f"Scanned {len(scanned)} comments successfully",
     )

@@ -99,7 +99,9 @@ class YouTubeService:
                 data = resp.json()
 
                 for item in data.get("items", []):
-                    snippet = item["snippet"]["topLevelComment"]["snippet"]
+                    top_level_comment = item["snippet"]["topLevelComment"]
+                    snippet = top_level_comment["snippet"]
+                    comment_id = top_level_comment.get("id")
                     published = snippet.get("publishedAt")
                     comment_date = (
                         datetime.fromisoformat(published.replace("Z", "+00:00"))
@@ -109,6 +111,7 @@ class YouTubeService:
                     all_comments.append(
                         {
                             "video_id": video_id,
+                            "commentId": comment_id,
                             "title": video_info.get("title"),
                             "channel_name": video_info.get("channel_name"),
                             "date": comment_date,

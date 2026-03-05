@@ -88,9 +88,7 @@ class DatasetDetailResponse(DatasetResponse):
 
 
 class YouTubeSearchRequest(BaseModel):
-    query: str = Field(..., min_length=1, description="Search query for YouTube")
     video_id: Optional[str] = Field(None, description="Specific video ID to fetch comments from")
-    max_results: Optional[int] = Field(None, ge=1, description="Max comments to fetch (None = fetch all)")
     dataset_name: Optional[str] = Field(None, description="Name for the dataset (auto-generated if empty)")
 
 
@@ -122,3 +120,23 @@ class PaginatedResponse(BaseModel):
 class MessageResponse(BaseModel):
     message: str
     detail: Optional[str] = None
+
+
+class ScannedComment(BaseModel):
+    author: Optional[str] = None
+    commentId: Optional[str] = None
+    comment: Optional[str] = None
+    clean_comment: Optional[str] = None
+    predicted_label: int  # 0 = normal, 1 = judi online
+    confidence_normal: float
+    confidence_judi: float
+
+
+class YouTubeScanResponse(BaseModel):
+    video_id: str
+    title: Optional[str] = None
+    channel_name: Optional[str] = None
+    total_comments: int
+    judi_count: int
+    normal_count: int
+    comments: List[ScannedComment]

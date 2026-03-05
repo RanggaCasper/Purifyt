@@ -17,11 +17,11 @@ install: venv
 
 # Run production server
 run:
-	$(UVICORN) $(APP) --host 0.0.0.0 --port 3000
+	$(UVICORN) $(APP) --host 0.0.0.0 --port 9000
 
 # Run development server with hot reload
 dev:
-	$(UVICORN) $(APP) --reload --host 127.0.0.1 --port 3000
+	$(UVICORN) $(APP) --reload --host 127.0.0.1 --port 9000
 
 # Run tests
 test:
@@ -44,4 +44,4 @@ docker-build:
 
 # Docker run
 docker-run:
-	docker run -p 3000:3000 --env-file .env purifyt
+	docker run -p 9000:9000 --env-file .env purifyt
