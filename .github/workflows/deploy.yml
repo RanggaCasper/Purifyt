@@ -75,10 +75,33 @@ jobs:
           script: |
             set -e
 
+            # ── Install Docker jika belum ada ──────────────────────────────
+            if ! command -v docker &>/dev/null; then
+              echo "Docker not found, installing..."
+              curl -fsSL https://get.docker.com | sh
+              systemctl enable docker
+              systemctl start docker
+              # Tambahkan user ke grup docker agar tidak perlu sudo
+              usermod -aG docker "$USER" || true
+            fi
+
+            # Pastikan PATH mencakup lokasi docker
+            export PATH="$PATH:/usr/local/bin:/usr/bin"
+
+            # ── Install docker compose plugin jika belum ada ───────────────
+            if ! docker compose version &>/dev/null; then
+              echo "Docker Compose plugin not found, installing..."
+              DOCKER_CONFIG="${DOCKER_CONFIG:-$HOME/.docker}"
+              mkdir -p "$DOCKER_CONFIG/cli-plugins"
+              curl -SL "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-$(uname -m)" \
+                -o "$DOCKER_CONFIG/cli-plugins/docker-compose"
+              chmod +x "$DOCKER_CONFIG/cli-plugins/docker-compose"
+            fi
+
             DEPLOY_PATH="${{ secrets.VPS_DEPLOY_PATH }}"
             REPO_URL="https://${{ secrets.CR_PAT }}@github.com/${{ github.repository }}.git"
 
-            # Clone jika direktori belum ada, pull jika sudah ada
+            # ── Clone atau pull kode terbaru ───────────────────────────────
             if [ ! -d "$DEPLOY_PATH/.git" ]; then
               echo "Directory not found, cloning repository..."
               mkdir -p "$DEPLOY_PATH"
@@ -87,22 +110,19 @@ jobs:
 
             cd "$DEPLOY_PATH"
 
-            # Update remote URL dengan PAT dan pull
             git remote set-url origin "$REPO_URL"
             git pull origin main
 
-            # Log in to GitHub Container Registry using PAT (required for private repo)
+            # ── Login ke GitHub Container Registry ────────────────────────
             echo "${{ secrets.CR_PAT }}" | docker login ghcr.io \
               -u ${{ github.actor }} --password-stdin
 
-            # Pull the latest image
+            # ── Pull image terbaru dan restart ─────────────────────────────
             docker pull ghcr.io/${{ env.IMAGE_NAME }}:latest
 
-            # Restart with docker-compose
             docker compose down --remove-orphans
             docker compose up -d
 
-            # Remove dangling images to free space
             docker image prune -f
 
             echo "✅ Deployment successful — $(date)"
