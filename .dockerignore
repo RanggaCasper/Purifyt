@@ -1,0 +1,60 @@
+# Version control
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environment
+venv/
+.venv/
+env/
+
+# Tests
+tests/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Logs
+logs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Docker & CI
+Dockerfile
+docker-compose*.yml
+.github/
+nginx/
+
+# Secrets & local config
+.env
+.env.*
+!.env.example
+
+# Cookies (runtime data, bukan bagian image)
+cookies/
+
+# Model files (large, di-mount sebagai volume di VPS)
+model/
+
+# Docs
+README.md
+*.md
+
+# Scripts dev
+scripts/
+Makefile
+postman_collection.json
