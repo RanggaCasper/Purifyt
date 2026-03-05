@@ -75,11 +75,20 @@ jobs:
           script: |
             set -e
 
-            # Navigate to project directory
-            cd ${{ secrets.VPS_DEPLOY_PATH }}
+            DEPLOY_PATH="${{ secrets.VPS_DEPLOY_PATH }}"
+            REPO_URL="https://${{ secrets.CR_PAT }}@github.com/${{ github.repository }}.git"
 
-            # Pull latest code (private repo via HTTPS + PAT)
-            git remote set-url origin https://${{ secrets.CR_PAT }}@github.com/${{ github.repository }}.git
+            # Clone jika direktori belum ada, pull jika sudah ada
+            if [ ! -d "$DEPLOY_PATH/.git" ]; then
+              echo "Directory not found, cloning repository..."
+              mkdir -p "$DEPLOY_PATH"
+              git clone "$REPO_URL" "$DEPLOY_PATH"
+            fi
+
+            cd "$DEPLOY_PATH"
+
+            # Update remote URL dengan PAT dan pull
+            git remote set-url origin "$REPO_URL"
             git pull origin main
 
             # Log in to GitHub Container Registry using PAT (required for private repo)
