@@ -1,9 +1,7 @@
 name: Deploy to VPS
 
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
@@ -57,93 +55,3 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-  # Deploy to VPS
-  deploy:
-    name: Deploy to VPS
-    runs-on: ubuntu-latest
-    needs: build
-    environment: production
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          password: ${{ secrets.VPS_PASSWORD }}
-          port: ${{ secrets.VPS_PORT || 22 }}
-          script: |
-            set -e
-
-            # ── Install Docker jika belum ada ──────────────────────────────
-            if ! command -v docker &>/dev/null; then
-              echo "Docker not found, installing..."
-              curl -fsSL https://get.docker.com | sh
-              systemctl enable docker
-              systemctl start docker
-              # Tambahkan user ke grup docker agar tidak perlu sudo
-              usermod -aG docker "$USER" || true
-            fi
-
-            # Pastikan PATH mencakup lokasi docker
-            export PATH="$PATH:/usr/local/bin:/usr/bin"
-
-            # ── Install docker compose plugin jika belum ada ───────────────
-            if ! docker compose version &>/dev/null; then
-              echo "Docker Compose plugin not found, installing..."
-              DOCKER_CONFIG="${DOCKER_CONFIG:-$HOME/.docker}"
-              mkdir -p "$DOCKER_CONFIG/cli-plugins"
-              curl -SL "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-$(uname -m)" \
-                -o "$DOCKER_CONFIG/cli-plugins/docker-compose"
-              chmod +x "$DOCKER_CONFIG/cli-plugins/docker-compose"
-            fi
-
-            DEPLOY_PATH="${{ secrets.VPS_DEPLOY_PATH }}"
-            REPO_URL="https://${{ secrets.CR_PAT }}@github.com/${{ github.repository }}.git"
-
-            # ── Clone atau pull kode terbaru ───────────────────────────────
-            if [ ! -d "$DEPLOY_PATH/.git" ]; then
-              echo "Directory not found, cloning repository..."
-              mkdir -p "$DEPLOY_PATH"
-              git clone "$REPO_URL" "$DEPLOY_PATH"
-            fi
-
-            cd "$DEPLOY_PATH"
-
-            git remote set-url origin "$REPO_URL"
-            git pull origin main
-
-            # ── Login ke GitHub Container Registry ────────────────────────
-            echo "${{ secrets.CR_PAT }}" | docker login ghcr.io \
-              -u ${{ github.actor }} --password-stdin
-
-            # ── Pull image terbaru dan restart ─────────────────────────────
-            # Lowercase wajib untuk Docker image name
-            IMAGE=$(echo "ghcr.io/${{ env.IMAGE_NAME }}:latest" | tr '[:upper:]' '[:lower:]')
-            docker pull "$IMAGE"
-
-            # Set IMAGE di docker-compose.yml via env
-            export GHCR_IMAGE="$IMAGE"
-
-            docker compose down --remove-orphans
-            docker compose up -d
-
-            docker image prune -f
-
-            echo "✅ Deployment successful — $(date)"
-
-      - name: Verify deployment
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          password: ${{ secrets.VPS_PASSWORD }}
-          port: ${{ secrets.VPS_PORT || 22 }}
-          script: |
-            cd ${{ secrets.VPS_DEPLOY_PATH }}
-            docker compose ps
-            echo "Container status checked."
