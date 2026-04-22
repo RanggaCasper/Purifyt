@@ -205,6 +205,10 @@ def test_canadian_syllabics():
     s = "K\u15e9\u144e\u0054\u004f\u15c7\u15f7\u004f\u14aa\u15e9"
     assert clean_comment(s) == EXPECTED
 
+def test_cjk_substitutes():
+    # Ҝ卂几ㄒㄖ尺乃ㄖㄥ卂
+    assert clean_comment("Ҝ卂几ㄒㄖ尺乃ㄖㄥ卂") == EXPECTED
+
 # ---------------------------------------------------------------------------
 # Emoji-framed / decorated text (emoji stripped, plain word remains)
 # ---------------------------------------------------------------------------
@@ -221,6 +225,15 @@ def test_emoji_bookend():
     # Emoji ribbon stripped; math script letters normalized by NFKC.
     assert clean_comment("🎀 𝓀𝒶𝓃𝓉𝓇𝒷𝓁𝒶 🎀") == "kantrbla"
 
+
+def test_remove_basic_symbols():
+    assert clean_comment("halo, kamu! oke?/sip.") == "halo kamu oke sip"
+
+
+def test_keep_url_while_cleaning_other_symbols():
+    text = "cek google.com alexis17.xyz https://pulauwin.com, sekarang!"
+    assert clean_comment(text) == "cek google.com alexis17.xyz https://pulauwin.com sekarang"
+
 # ---------------------------------------------------------------------------
 # KNOWN LIMITATIONS — these patterns cannot be decoded without reversal logic
 # or a full confusables DB; assert they do NOT accidentally equal the expected
@@ -234,8 +247,6 @@ KNOWN_LIMITATION_CASES = [
     "\u0252\u007c\u006f\u0064\u027f\u006f\u019a\u1d0e\u0252\u029e",
     # Cherokee: ᏦᏗᏁᏖᎧᏒᏰᎧᏝᏗ
     "\u13b6\u13a7\u13a1\u13a6\u13b7\u13a2\u13f8\u13b7\u13ad\u13a7",
-    # CJK kanji substitutes: Ҝ卂几ㄒㄖ尺乃ㄖㄥ卂
-    "Ҝ卂几ㄒㄖ尺乃ㄖㄥ卂",
     # Thai/Lao mixed: kคຖt໐r๖໐lค
     "k\u0e04\u0e96\u0074\u0e4f\u0072\u0e57\u0e4f\u006c\u0e04",
 ]

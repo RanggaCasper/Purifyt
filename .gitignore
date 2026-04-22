@@ -18,9 +18,3 @@ kaggle_temp/
 # Cookies & logs (Selenium auto-delete)
 cookies/
 logs/
-
-# Ignore all files in the model directory except .gitkeep
-!model/.gitkeep
-model/*.json
-model/*.bin
-model/*.safetensors

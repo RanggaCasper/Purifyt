@@ -1,0 +1,4 @@
+# Ignore model files
+*.json
+*.bin
+*.safetensors
