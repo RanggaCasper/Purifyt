@@ -153,6 +153,9 @@ _URL_RE = re.compile(
 )
 _URL_TRAILING_PUNCTUATION = ",.!?;:"
 
+# Matches YouTube-style timestamps: 0:00 / 5:10 / 10:50 / 1:07:10
+_TIMESTAMP_RE = re.compile(r"\b\d{1,2}:\d{2}(?::\d{2})?\b")
+
 _ENCLOSED_LETTER_NAME_PREFIXES = (
     "SQUARED LATIN CAPITAL LETTER ",
     "NEGATIVE SQUARED LATIN CAPITAL LETTER ",
@@ -308,7 +311,8 @@ def _remove_unicode_artifacts(text: str) -> str:
 
 
 def _remove_ascii_symbols(text: str) -> str:
-    """Remove ASCII punctuation symbols like , . ! ? / from regular text."""
+    """Remove timestamps and ASCII punctuation symbols like , . ! ? / from regular text."""
+    text = _TIMESTAMP_RE.sub("", text)
     return _ASCII_SYMBOLS_RE.sub(" ", text)
 
 
