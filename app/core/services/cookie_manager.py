@@ -120,17 +120,39 @@ class CookieManager:
             return {"exists": True, "path": str(self.cookie_path), "error": str(e)}
 
     def delete(self) -> bool:
-        """Delete the cookie file, and remove the parent folder if it is now empty."""
+        """
+        Delete the cookie file, the parent email folder, and the Chrome
+        profile folder (_profiles/{email}) associated with this account.
+        """
+        import shutil
+
+        deleted_any = False
+
+        # 1. Delete the cookie JSON file
         if self.cookie_path.exists():
             self.cookie_path.unlink()
-            logger.info(f"Cookie dihapus: {self.cookie_path}")
-            # Remove the parent folder if it is now empty
-            parent = self.cookie_path.parent
-            if parent != COOKIES_DIR and parent.exists() and not any(parent.iterdir()):
-                parent.rmdir()
-                logger.info(f"Folder kosong dihapus: {parent}")
-            return True
-        return False
+            logger.info(f"Cookie file dihapus: {self.cookie_path}")
+            deleted_any = True
+
+        # 2. Delete the parent email folder (e.g. cookies/{email}/)
+        parent = self.cookie_path.parent
+        if parent != COOKIES_DIR and parent.exists():
+            try:
+                shutil.rmtree(parent)
+                logger.info(f"Folder cookie dihapus: {parent}")
+            except Exception as e:
+                logger.warning(f"Gagal hapus folder cookie {parent}: {e}")
+
+        # 3. Delete the Chrome profile folder (cookies/_profiles/{email}/)
+        profile_dir = COOKIES_DIR / "_profiles" / parent.name
+        if profile_dir.exists():
+            try:
+                shutil.rmtree(profile_dir)
+                logger.info(f"Folder profile Chrome dihapus: {profile_dir}")
+            except Exception as e:
+                logger.warning(f"Gagal hapus folder profile {profile_dir}: {e}")
+
+        return deleted_any
 
     @staticmethod
     def list_all_accounts() -> list[dict]:
