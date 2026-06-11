@@ -132,7 +132,7 @@ async def scan_youtube_comments(
     scanned = [
         ScannedComment(
             author=row.get("author"),
-            commentId=row.get("commentId"),
+            commentId=row.get("_comment_id"),
             comment=row.get("comment"),
             clean_comment=pred["clean_comment"],
             predicted_label=pred["label"],

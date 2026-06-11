@@ -81,7 +81,7 @@ async def run_channel_explorer(
             ):
                 event_type = event.get("type", "progress")
 
-                # Intercept video_ready → save to DB immediately
+                # Intercept video_ready → save to DB immediately (only if dataset_name provided)
                 if event_type == "video_ready":
                     comments = event.get("comments", [])
                     vid = event.get("video_id", "")
@@ -91,14 +91,17 @@ async def run_channel_explorer(
                     video_judi = event.get("video_judi", 0)
                     video_normal = event.get("video_normal", 0)
 
+                    # Scan-only mode: skip DB jika dataset_name tidak diisi
+                    if not payload.dataset_name:
+                        yield f"event: video_saved\ndata: {json.dumps({'type': 'video_saved', 'message': f'[Scan only] {len(comments)} komentar dari \"{vtitle}\" ({video_judi} judi, {video_normal} normal) — tidak disimpan', 'video_id': vid, 'count': 0, 'judi': video_judi, 'normal': video_normal, 'dataset_id': None}, ensure_ascii=False)}\n\n"
+                        continue
+
                     yield f"event: saving\ndata: {json.dumps({'type': 'saving', 'message': f'Menyimpan {len(comments)} komentar dari \"{vtitle}\"...', 'video_id': vid}, ensure_ascii=False)}\n\n"
 
                     try:
                         # Create dataset lazily on first video with judi
                         if dataset is None:
-                            name = payload.dataset_name or (
-                                f"Channel: {channel_name}"
-                            )
+                            name = payload.dataset_name
                             ds_repo = DatasetRepository(db)
                             dataset = await ds_repo.create(
                                 name=name,

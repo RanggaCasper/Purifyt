@@ -18,33 +18,28 @@ from app.core.services.youtube_studio_api import YouTubeStudioAPI
 
 logger = get_logger(__name__)
 
-
 def _detect_channel_name(driver) -> str | None:
-    """Detect the channel name from the YouTube Studio page."""
+    """Detect the channel name from YouTube Studio."""
     try:
-        # Navigate back to YouTube Studio
         driver.get(YOUTUBE_STUDIO_BASE)
+
         import time
         time.sleep(3)
 
         channel_name = driver.execute_script("""
-            const el = document.querySelector(
-                '#channel-title, .channel-name, [id*="channel-name"]'
-            );
-            if (el) return el.textContent.trim();
-
-            // Fallback: check from the page title
-            const title = document.title;
-            if (title.includes(' - YouTube Studio')) {
-                return title.replace(' - YouTube Studio', '').trim();
+            const el = document.querySelector('#entity-name');
+            if (el) {
+                return el.textContent.trim();
             }
+
             return null;
         """)
+
         return channel_name
+
     except Exception as e:
         logger.debug(f"Channel name detect failed: {e}")
         return None
-
 
 def _save_cookie_account_sync(
     email: str,
@@ -110,7 +105,6 @@ def _save_cookie_account_sync(
     finally:
         sync_engine.dispose()
 
-
 @dataclass
 class ScanResult:
     """Result of a comment scan and delete operation."""
@@ -130,11 +124,9 @@ class ScanResult:
             "judi_comments": self.judi_comments,
         }
 
-
 def _sse_event(event: str, data: dict) -> str:
     """Format SSE event string."""
     return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
-
 
 class AutoDeleteService:
     """
@@ -167,7 +159,6 @@ class AutoDeleteService:
         self._yt_api: Optional[YouTubeStudioAPI] = None
 
     # Lifecycle 
-
     def start_browser(self) -> bool:
         """Start Chrome browser."""
         logger.info("Memulai browser Chrome...")
@@ -201,7 +192,6 @@ class AutoDeleteService:
         self.stop_browser()
 
     # Login Flow (SSE) 
-
     @staticmethod
     def login_stream(
         email: str,
@@ -254,6 +244,36 @@ class AutoDeleteService:
             wait_page_ready(driver)
             time.sleep(2)
 
+            # Helper: klik tombol Lewati / Skip jika muncul
+            def try_click_skip():
+                skip_selectors = [
+                    # Teks tombol (case-insensitive via XPath)
+                    '//button[contains(translate(., "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "lewati")]',
+                    '//button[contains(translate(., "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "skip")]',
+                    '//span[contains(translate(., "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "lewati")]/ancestor::button',
+                    '//span[contains(translate(., "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "skip")]/ancestor::button',
+                    # Selector CSS umum Google
+                    'button[jsname="LgbsSe"]',
+                    'button[data-action="skip"]',
+                    '#skipButton',
+                    '.skip-button',
+                ]
+                from selenium.webdriver.common.by import By
+                for sel in skip_selectors:
+                    try:
+                        if sel.startswith("//"):
+                            els = driver.find_elements(By.XPATH, sel)
+                        else:
+                            els = driver.find_elements(By.CSS_SELECTOR, sel)
+                        for el in els:
+                            if el.is_displayed() and el.is_enabled():
+                                el.click()
+                                logger.info(f"Tombol Lewati/Skip diklik (selector: {sel})")
+                                return True
+                    except Exception:
+                        pass
+                return False
+
             # Enter the email address
             yield _sse_event("status", {
                 "step": "input_email",
@@ -276,6 +296,7 @@ class AutoDeleteService:
 
                 # Wait for the password page to appear (transition animation ~2-5 s)
                 time.sleep(4)
+                try_click_skip()
             except Exception as e:
                 yield _sse_event("error", {
                     "message": f"Gagal input email: {e}",
@@ -306,6 +327,7 @@ class AutoDeleteService:
                 )
                 pw_next.click()
                 time.sleep(4)
+                try_click_skip()
             except Exception as e:
                 yield _sse_event("error", {
                     "message": f"Gagal input password: {e}. Mungkin ada verifikasi tambahan (2FA).",
@@ -325,6 +347,9 @@ class AutoDeleteService:
                 time.sleep(3)
                 elapsed = int(time.time() - start)
                 current_url = driver.current_url
+
+                # Klik tombol Lewati/Skip jika muncul di tengah proses
+                try_click_skip()
 
                 # Check whether we have left the Google login page
                 if "accounts.google.com" not in current_url:
@@ -430,7 +455,6 @@ class AutoDeleteService:
         return _predict(text)
 
     # Main Operations 
-
     def scan_video(
         self,
         video_id: str,

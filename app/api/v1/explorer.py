@@ -94,6 +94,21 @@ async def run_explorer(
             yield f"event: complete\ndata: {json.dumps(done_data, ensure_ascii=False, default=str)}\n\n"
             return
 
+        # Scan-only mode: jika dataset_name tidak diisi, tidak simpan ke DB
+        if not payload.dataset_name:
+            done_data = {
+                "type": "complete",
+                "saved": False,
+                "dataset": None,
+                "stats": stats,
+                "message": (
+                    f"[Scan only] {message} "
+                    f"Tidak disimpan karena dataset_name tidak diisi."
+                ),
+            }
+            yield f"event: complete\ndata: {json.dumps(done_data, ensure_ascii=False, default=str)}\n\n"
+            return
+
         # Save to DB
         yield f"event: saving\ndata: {json.dumps({'type': 'saving', 'message': f'Menyimpan {len(comments)} komentar ke database...'}, ensure_ascii=False)}\n\n"
 

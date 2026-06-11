@@ -111,7 +111,6 @@ class YouTubeService:
                     all_comments.append(
                         {
                             "video_id": video_id,
-                            "commentId": comment_id,
                             "title": video_info.get("title"),
                             "channel_name": video_info.get("channel_name"),
                             "date": comment_date,
@@ -120,6 +119,8 @@ class YouTubeService:
                             "label": None,
                             "clean_comment": None,
                             "predicted_label": None,
+                            # commentId disimpan sebagai metadata, bukan kolom DB
+                            "_comment_id": comment_id,
                         }
                     )
 
@@ -155,15 +156,44 @@ class YouTubeService:
 
     async def get_channel_info(self, channel_input: str) -> dict:
         """
-        Get channel info from a channel ID, @handle, or custom URL.
+        Get channel info from various input formats:
+        - Full URL: https://youtube.com/@handle, https://youtube.com/channel/UCxxxx,
+                    https://youtube.com/c/name, https://youtube.com/user/name
+        - @handle: @ChannelName
+        - Channel ID: UCxxxxxxxxxxxxxxxxxxxxxxxx
+        - Plain handle/name: ChannelName
+
         Returns: {"channel_id": str, "title": str, "description": str}
         """
-        # Try as channel ID first (starts with UC)
-        if channel_input.startswith("UC") and len(channel_input) == 24:
-            return await self._get_channel_by_id(channel_input)
+        raw = channel_input.strip()
 
-        # Try as @handle
-        handle = channel_input.lstrip("@")
+        # --- Extract from full YouTube URL ---
+        # Matches: /@handle, /channel/ID, /c/name, /user/name
+        url_patterns = [
+            r'youtube\.com/@([\w.-]+)',        # /@handle
+            r'youtube\.com/channel/(UC[\w-]+)', # /channel/UCxxxx
+            r'youtube\.com/c/([\w.-]+)',        # /c/name
+            r'youtube\.com/user/([\w.-]+)',      # /user/name
+        ]
+        for i, pattern in enumerate(url_patterns):
+            m = re.search(pattern, raw)
+            if m:
+                extracted = m.group(1).rstrip('/')
+                # Remove trailing path segments (e.g. /videos, /about)
+                extracted = extracted.split('/')[0]
+                if i == 1:
+                    # /channel/UCxxxx → direct ID lookup
+                    return await self._get_channel_by_id(extracted)
+                else:
+                    # @handle, /c/name, /user/name → handle lookup
+                    return await self._get_channel_by_handle(extracted)
+
+        # --- Plain channel ID (UCxxxxxxxxxxxxxxxxxxxxxxxx) ---
+        if re.match(r'^UC[\w-]{22}$', raw):
+            return await self._get_channel_by_id(raw)
+
+        # --- @handle or bare handle ---
+        handle = raw.lstrip('@')
         return await self._get_channel_by_handle(handle)
 
     async def _get_channel_by_id(self, channel_id: str) -> dict:

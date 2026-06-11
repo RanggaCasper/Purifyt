@@ -29,7 +29,11 @@ class CommentRepository:
         return comment
 
     async def bulk_create(self, comments_data: List[dict]) -> int:
-        comments = [Comment(**_apply_clean_comment(data)) for data in comments_data]
+        # Strip private/metadata keys (prefixed with _) yang bukan kolom DB
+        def _strip_meta(data: dict) -> dict:
+            return {k: v for k, v in data.items() if not k.startswith("_")}
+
+        comments = [Comment(**_apply_clean_comment(_strip_meta(data))) for data in comments_data]
         self.db.add_all(comments)
         await self.db.flush()
         logger.debug("[COMMENT_REPO] bulk_create inserted %d comments", len(comments))

@@ -13,7 +13,6 @@ logger = get_logger(__name__)
 _ROOT_DIR = Path(__file__).resolve().parent.parent.parent.parent
 COOKIES_DIR = _ROOT_DIR / "cookies"
 
-
 def _sanitize_email_folder(email: str) -> str:
     """Sanitize an email address into a valid folder name."""
     return re.sub(r'[<>:"/\\|?*]', "_", email.strip().lower())

@@ -89,6 +89,7 @@ class DatasetDetailResponse(DatasetResponse):
 
 class YouTubeSearchRequest(BaseModel):
     video_id: Optional[str] = Field(None, description="Specific video ID to fetch comments from")
+    query: Optional[str] = Field(None, description="Search query to find a video (used if video_id is not provided)")
     dataset_name: Optional[str] = Field(None, description="Name for the dataset (auto-generated if empty)")
 
 
