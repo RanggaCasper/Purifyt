@@ -246,6 +246,38 @@ class AutoDeleteService:
 
             # Helper: klik tombol Lewati / Skip jika muncul
             def try_click_skip():
+                from selenium.webdriver.common.by import By
+
+                # Jangan klik Skip jika sedang di halaman verifikasi 2 langkah (2FA)
+                try:
+                    page_src = driver.page_source.lower()
+                    current_url = driver.current_url.lower()
+                    two_step_signals = [
+                        "2-step verification",
+                        "verifikasi 2 langkah",
+                        "2 langkah",
+                        "two-step",
+                        "twosv",
+                        "totp",
+                        "authenticator",
+                        "verification code",
+                        "kode verifikasi",
+                        "enter the code",
+                        "masukkan kode",
+                        "challenge",
+                    ]
+                    url_signals = ["challenge", "twosv", "signin/v2/challenge"]
+
+                    if any(sig in current_url for sig in url_signals):
+                        logger.debug("Skip 2FA page — tidak klik tombol Lewati/Skip")
+                        return False
+
+                    if any(sig in page_src for sig in two_step_signals):
+                        logger.debug("Halaman 2FA terdeteksi — tidak klik tombol Lewati/Skip")
+                        return False
+                except Exception:
+                    pass
+
                 skip_selectors = [
                     # Teks tombol (case-insensitive via XPath)
                     '//button[contains(translate(., "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "lewati")]',
