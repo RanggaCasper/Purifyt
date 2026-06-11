@@ -186,9 +186,9 @@ async def test_me_with_valid_access_token(client: AsyncClient):
 
 @pytest.mark.anyio
 async def test_me_without_token_returns_401(client: AsyncClient):
-    """No Authorization header → 401."""
+    """No Authorization header → 401/403 (HTTPBearer rejects a missing header)."""
     resp = await client.get("/api/v1/auth/me")
-    assert resp.status_code == 401
+    assert resp.status_code in (401, 403)
 
 
 @pytest.mark.anyio

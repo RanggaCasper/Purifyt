@@ -133,25 +133,18 @@ _JS_FIND_COMMENT_THREADS = """
 """
 
 _JS_SCROLL_DOWN = """
-    var comment = document.querySelector(
-        'ytcp-comment-thread, #comment-thread, .comment-thread-item'
-    );
-    if (!comment) {
-        window.scrollTo(0, document.documentElement.scrollHeight);
-        return 'window';
-    }
-    var parent = comment.parentElement;
-    while (parent && parent !== document.documentElement) {
-        var style = window.getComputedStyle(parent);
-        if ((style.overflowY === 'scroll' || style.overflowY === 'auto')
-            && parent.scrollHeight > parent.clientHeight + 50) {
-            parent.scrollTop = parent.scrollHeight;
-            return 'container:' + (parent.id || parent.tagName);
-        }
-        parent = parent.parentElement;
+    var container = document.querySelector('ytcp-activity-section');
+    if (container) {
+        container.scrollTop = container.scrollHeight;
+        return 'ytcp-activity-section:' + container.scrollHeight;
     }
     window.scrollTo(0, document.documentElement.scrollHeight);
     return 'window';
+"""
+
+_JS_GET_CONTAINER_HEIGHT = """
+    var container = document.querySelector('ytcp-activity-section');
+    return container ? container.scrollHeight : document.documentElement.scrollHeight;
 """
 
 # YouTubeStudioAPI class
@@ -548,26 +541,44 @@ class YouTubeStudioAPI:
         return selected_count
 
     def _scroll_load_all_dom_comments(self):
-        """Scroll the page to load all comment threads into the DOM."""
-        last_count = 0
-        no_new_rounds = 0
+        """
+        Scroll ytcp-activity-section sampai semua komentar ter-load di DOM.
+        Berhenti setelah scrollHeight tidak berubah selama 3 iterasi berturut-turut.
+        """
+        last_height = 0
+        stable_count = 0
+        iteration = 0
+        max_iterations = 100  # safety cap
 
-        for _ in range(50):
+        while stable_count < 3 and iteration < max_iterations:
+            iteration += 1
+
+            # Scroll container ke bawah
             self.driver.execute_script(_JS_SCROLL_DOWN)
             time.sleep(SCROLL_PAUSE)
 
+            current_height = self.driver.execute_script(_JS_GET_CONTAINER_HEIGHT)
             current_count = self.driver.execute_script(
                 "return document.querySelectorAll('ytcp-comment-thread').length;"
             )
-            if current_count == last_count:
-                no_new_rounds += 1
-                if no_new_rounds >= 3:
-                    break
-            else:
-                no_new_rounds = 0
-            last_count = current_count
 
-        logger.debug(f"DOM loaded {last_count} comment threads")
+            logger.debug(
+                f"Scroll #{iteration}: scrollHeight={current_height} "
+                f"threads={current_count} stable={stable_count}/3"
+            )
+
+            if current_height == last_height:
+                stable_count += 1
+                logger.debug(f"  Tidak ada konten baru ({stable_count}/3)")
+            else:
+                stable_count = 0
+                last_height = current_height
+                logger.debug(f"  Loaded more comments (height: {current_height})")
+
+        logger.debug(
+            f"Scroll selesai: {iteration} iterasi, "
+            f"{self.driver.execute_script('return document.querySelectorAll(\"ytcp-comment-thread\").length;')} threads di DOM"
+        )
 
     def _select_checkboxes(self, comment_ids: set[str], judi_texts: dict[str, str] | None = None) -> int:
         """

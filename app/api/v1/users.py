@@ -6,7 +6,7 @@ from app.db.connection import get_db
 from app.db.repositories.user_repository import UserRepository
 from app.core.schemas import UserResponse
 from app.core.services.auth_service import get_current_user
-from app.utils.response_formatter import APIResponse, paginated_response
+from app.utils.response_formatter import APIResponse, paginated_response, success_response
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/users", tags=["Users"])

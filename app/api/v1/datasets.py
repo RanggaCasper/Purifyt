@@ -52,6 +52,43 @@ async def list_datasets(
     return paginated_response(items=results, total=total, page=page, per_page=per_page)
 
 
+@router.get("/search/comments", response_model=APIResponse)
+async def search_comments(
+    keyword: str = Query(..., min_length=1),
+    page: int = 1,
+    per_page: int = 50,
+    db: AsyncSession = Depends(get_db),
+):
+    comment_repo = CommentRepository(db)
+    skip = (page - 1) * per_page
+    comments = await comment_repo.search(keyword, skip=skip, limit=per_page)
+    total = await comment_repo.count_search(keyword)
+    return paginated_response(
+        items=[
+            CommentResponse(
+                id=c.id,
+                dataset_id=c.dataset_id,
+                video_id=c.video_id,
+                title=c.title,
+                channel_name=c.channel_name,
+                date=c.date,
+                author=c.author,
+                comment=c.comment,
+                label=c.label,
+                clean_comment=c.clean_comment,
+                predicted_label=c.predicted_label,
+                source=c.source.value,
+                source_detail=c.source_detail,
+                created_at=c.created_at,
+            )
+            for c in comments
+        ],
+        total=total,
+        page=page,
+        per_page=per_page,
+    )
+
+
 @router.get("/{dataset_id}", response_model=APIResponse)
 async def get_dataset(
     dataset_id: int,
@@ -121,43 +158,6 @@ async def list_comments(
     skip = (page - 1) * per_page
     comments = await comment_repo.get_by_dataset(dataset_id, skip=skip, limit=per_page)
     total = await comment_repo.count_by_dataset(dataset_id)
-    return paginated_response(
-        items=[
-            CommentResponse(
-                id=c.id,
-                dataset_id=c.dataset_id,
-                video_id=c.video_id,
-                title=c.title,
-                channel_name=c.channel_name,
-                date=c.date,
-                author=c.author,
-                comment=c.comment,
-                label=c.label,
-                clean_comment=c.clean_comment,
-                predicted_label=c.predicted_label,
-                source=c.source.value,
-                source_detail=c.source_detail,
-                created_at=c.created_at,
-            )
-            for c in comments
-        ],
-        total=total,
-        page=page,
-        per_page=per_page,
-    )
-
-
-@router.get("/search/comments", response_model=APIResponse)
-async def search_comments(
-    keyword: str = Query(..., min_length=1),
-    page: int = 1,
-    per_page: int = 50,
-    db: AsyncSession = Depends(get_db),
-):
-    comment_repo = CommentRepository(db)
-    skip = (page - 1) * per_page
-    comments = await comment_repo.search(keyword, skip=skip, limit=per_page)
-    total = await comment_repo.count_search(keyword)
     return paginated_response(
         items=[
             CommentResponse(

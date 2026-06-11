@@ -25,7 +25,8 @@ async def client():
 async def test_root(client: AsyncClient):
     resp = await client.get("/")
     assert resp.status_code == 200
-    data = resp.json()
+    # Response is wrapped in the standard APIResponse envelope.
+    data = resp.json()["data"]
     assert "app" in data
     assert "version" in data
     assert "docs" in data
@@ -35,7 +36,7 @@ async def test_root(client: AsyncClient):
 async def test_health(client: AsyncClient):
     resp = await client.get("/health")
     assert resp.status_code == 200
-    assert resp.json() == {"status": "ok"}
+    assert resp.json()["data"] == {"status": "ok"}
 
 
 # Auth 
@@ -91,10 +92,12 @@ async def test_refresh_no_cookie(client: AsyncClient):
 @pytest.mark.anyio
 async def test_refresh_invalid_cookie(client: AsyncClient):
     """Refresh with a bogus cookie value should return 401."""
-    resp = await client.post(
-        "/api/v1/auth/refresh",
-        cookies={"refresh_token": "bogus-value"},
-    )
+    with patch("app.api.v1.auth.RefreshTokenRepository") as MockRTRepo:
+        MockRTRepo.return_value.get_by_token = AsyncMock(return_value=None)
+        resp = await client.post(
+            "/api/v1/auth/refresh",
+            cookies={"refresh_token": "bogus-value"},
+        )
     assert resp.status_code == 401
 
 
@@ -106,49 +109,49 @@ async def test_logout_no_cookie(client: AsyncClient):
 
 
 # Protected Endpoints (no auth) 
+# HTTPBearer returns 403 when the Authorization header is entirely absent.
 
 @pytest.mark.anyio
 async def test_explorer_no_auth(client: AsyncClient):
     resp = await client.post("/api/v1/explorer/run", json={"video_id": "test"})
-    assert resp.status_code == 401
+    assert resp.status_code in (401, 403)
 
 
 @pytest.mark.anyio
 async def test_channel_explorer_no_auth(client: AsyncClient):
     resp = await client.post("/api/v1/explorer/channel/run", json={"channel": "@test"})
-    assert resp.status_code == 401
+    assert resp.status_code in (401, 403)
 
 
 @pytest.mark.anyio
 async def test_kaggle_import_no_auth(client: AsyncClient):
     resp = await client.post("/api/v1/kaggle/import", json={"dataset_slug": "user/dataset"})
-    assert resp.status_code == 401
+    assert resp.status_code in (401, 403)
 
 
 @pytest.mark.anyio
 async def test_labeling_dataset_no_auth(client: AsyncClient):
     resp = await client.post("/api/v1/labeling/dataset/1")
-    assert resp.status_code == 401
+    assert resp.status_code in (401, 403)
 
 
 # Datasets 
 
 @pytest.mark.anyio
 async def test_datasets_list(client: AsyncClient):
-    """Datasets endpoint hits DB; skip gracefully when no DB is available."""
-    try:
-        resp = await client.get("/api/v1/datasets/")
-        assert resp.status_code in (200, 500)
-    except (AttributeError, ConnectionError, OSError):
-        pytest.skip("Database not available")
+    """Datasets list now requires authentication -> 401/403 without a token."""
+    resp = await client.get("/api/v1/datasets/")
+    assert resp.status_code in (401, 403)
 
 
 # YouTube 
 
 @pytest.mark.anyio
 async def test_youtube_search_no_query(client: AsyncClient):
+    """/youtube/search is behind auth, so an unauthenticated call is rejected
+    before query validation runs."""
     resp = await client.get("/api/v1/youtube/search")
-    assert resp.status_code == 422
+    assert resp.status_code in (401, 403)
 
 
 # Text Cleaner 
@@ -317,7 +320,9 @@ class TestSchemas:
         from app.core.schemas import YouTubeSearchRequest
         req = YouTubeSearchRequest(query="test")
         assert req.query == "test"
-        assert req.max_results is None
+        # YouTubeSearchRequest currently exposes video_id / query / dataset_name.
+        assert req.video_id is None
+        assert req.dataset_name is None
 
     def test_dataset_create(self):
         from app.core.schemas import DatasetCreate
