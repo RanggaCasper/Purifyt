@@ -5,6 +5,15 @@ const { getLogMeta } = useLogMeta()
 
 <template>
   <div class="space-y-4">
+    <!-- CAPTCHA prompt -->
+    <UAlert
+      v-if="autoDeleteStore.loginCaptcha"
+      color="warning"
+      :title="$t('autoDelete.captchaTitle')"
+      :description="$t('autoDelete.captchaDesc')"
+      icon="i-lucide-shield-alert"
+    />
+
     <!-- Live login log -->
     <TerminalLog
       v-if="autoDeleteStore.loginLogs.length > 0 || autoDeleteStore.loginRunning"

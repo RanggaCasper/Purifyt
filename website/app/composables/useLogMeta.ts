@@ -11,6 +11,7 @@ const autoDeleteMap: Record<string, LogMeta> = {
   navigate: { icon: 'i-lucide-compass', colorClass: 'text-sky-400' },
   input_email: { icon: 'i-lucide-mail', colorClass: 'text-violet-400' },
   input_password: { icon: 'i-lucide-lock', colorClass: 'text-amber-400' },
+  captcha: { icon: 'i-lucide-shield-alert', colorClass: 'text-yellow-400' },
   verify: { icon: 'i-lucide-shield-check', colorClass: 'text-green-400' },
   save_cookies: { icon: 'i-lucide-cookie', colorClass: 'text-orange-400' },
   save_db: { icon: 'i-lucide-database', colorClass: 'text-emerald-400' },

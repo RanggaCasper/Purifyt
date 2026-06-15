@@ -62,25 +62,6 @@ clean-all: clean ## Remove everything including node_modules
 	@if exist node_modules (rmdir /s /q node_modules)
 	@echo "node_modules removed."
 
-reinstall: clean-all install prepare ## Full clean reinstall
-
-# Extension 
-ext-build: ## Package extension .zip (use version from manifest.json)
-	@FOR /F "tokens=*" %%V IN ('node -p "require('./extension/manifest.json').version"') DO SET VER=%%V
-	@echo Packaging extension v%VER%...
-	@powershell -Command "Compress-Archive -Force -Path extension\* -DestinationPath purifyt-extension-v%VER%.zip"
-	@echo Done: purifyt-extension-v%VER%.zip
-
-ext-release: ## Tag and push new version (example: make ext-release VERSION=1.2.0)
-	@if "$(VERSION)"=="" (echo "Usage: make ext-release VERSION=x.y.z" & exit 1)
-	@powershell -Command "(Get-Content extension/manifest.json) -replace '\"version\": \"[^\"]*\"', '\"version\": \"$(VERSION)\"' | Set-Content extension/manifest.json"
-	@powershell -Command "(Get-Content extension/src/modules/config.js) -replace \"VERSION: '[^']*'\", \"VERSION: '$(VERSION)'\" | Set-Content extension/src/modules/config.js"
-	@echo Updated manifest.json and config.js to v$(VERSION)
-	@git add extension/manifest.json extension/src/modules/config.js
-	@git commit -m "chore(extension): bump version to v$(VERSION)"
-	@git tag v$(VERSION)
-	@echo "Run: git push origin main v$(VERSION)"
-
 # Environment setup helpers 
 env: ## Copy .env.example to .env (if not exists)
 	@if not exist .env (copy .env.example .env && echo ".env created") else (echo ".env already exists")

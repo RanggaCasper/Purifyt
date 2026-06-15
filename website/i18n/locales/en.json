@@ -294,6 +294,8 @@
     "showBrowserCaptcha": "Browser window will be visible — useful if CAPTCHA or manual verification is required",
     "loginBtn": "Login",
     "loginLog": "login.log",
+    "captchaTitle": "CAPTCHA Detected",
+    "captchaDesc": "Please solve the CAPTCHA manually in the open browser window, then click Next. Make sure you are using 'Show Browser' mode.",
     "loginSuccess": "Login Successful!",
     "cookieSaved": "Cookie saved for this account",
     "channel": "Channel",

@@ -294,6 +294,8 @@
     "showBrowserCaptcha": "Jendela browser akan terlihat — berguna jika CAPTCHA atau verifikasi manual diperlukan",
     "loginBtn": "Login",
     "loginLog": "login.log",
+    "captchaTitle": "CAPTCHA Terdeteksi",
+    "captchaDesc": "Silakan isi CAPTCHA secara manual di jendela browser yang terbuka, lalu klik Berikutnya. Pastikan menggunakan mode 'Tampilkan Browser'.",
     "loginSuccess": "Login Berhasil!",
     "cookieSaved": "Cookie tersimpan untuk akun ini",
     "channel": "Channel",

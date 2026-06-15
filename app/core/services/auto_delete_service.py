@@ -221,6 +221,7 @@ class AutoDeleteService:
         from selenium.webdriver.common.keys import Keys
         from selenium.webdriver.support.ui import WebDriverWait
         from selenium.webdriver.support import expected_conditions as EC
+        from selenium.common.exceptions import TimeoutException, NoSuchElementException
 
         driver = None
         email_lower = email.strip().lower()
@@ -306,6 +307,30 @@ class AutoDeleteService:
                         pass
                 return False
 
+            # Helper: deteksi CAPTCHA dan tunggu user menyelesaikannya manual
+            def wait_for_captcha() -> bool:
+                """
+                Returns True jika tidak ada captcha (atau sudah selesai),
+                False jika captcha muncul tapi tidak bisa diselesaikan (headless).
+                """
+                captcha_selectors = [
+                    'img#captchaimg',
+                    'input#ca',
+                    'input[name="ca"]',
+                    'input[aria-label*="captcha" i]',
+                    'input[aria-label*="Ketik teks" i]',
+                ]
+                captcha_present = False
+                for sel in captcha_selectors:
+                    try:
+                        els = driver.find_elements(By.CSS_SELECTOR, sel)
+                        if any(el.is_displayed() for el in els):
+                            captcha_present = True
+                            break
+                    except Exception:
+                        pass
+                return not captcha_present
+
             # Enter the email address
             yield _sse_event("status", {
                 "step": "input_email",
@@ -313,12 +338,51 @@ class AutoDeleteService:
             })
 
             try:
-                email_input = wait.until(
-                    EC.element_to_be_clickable((By.CSS_SELECTOR, 'input[type="email"]'))
-                )
+                # Google email field: id=identifierId (primary), fallback ke type=email
+                email_input = None
+                for locator in [
+                    (By.ID, "identifierId"),
+                    (By.CSS_SELECTOR, 'input[type="email"]'),
+                    (By.NAME, "identifier"),
+                ]:
+                    try:
+                        email_input = wait.until(EC.element_to_be_clickable(locator))
+                        if email_input:
+                            break
+                    except TimeoutException:
+                        continue
+
+                if not email_input:
+                    yield _sse_event("error", {
+                        "message": "Field email tidak ditemukan di halaman login Google.",
+                    })
+                    return
+
+                # Fokus + isi email
+                email_input.click()
+                time.sleep(0.5)
                 email_input.clear()
                 email_input.send_keys(email_lower)
                 time.sleep(1)
+
+                # Verifikasi value terisi, retry via JS jika kosong
+                entered = email_input.get_attribute("value") or ""
+                if entered.strip().lower() != email_lower:
+                    logger.warning(f"Email belum terisi (value='{entered}'), retry via JS...")
+                    driver.execute_script(
+                        "arguments[0].value = arguments[1];"
+                        "arguments[0].dispatchEvent(new Event('input', {bubbles: true}));"
+                        "arguments[0].dispatchEvent(new Event('change', {bubbles: true}));",
+                        email_input, email_lower,
+                    )
+                    time.sleep(1)
+                    entered = email_input.get_attribute("value") or ""
+
+                if entered.strip().lower() != email_lower:
+                    yield _sse_event("error", {
+                        "message": f"Gagal mengisi email (value terbaca: '{entered}').",
+                    })
+                    return
 
                 # Click Next
                 next_btn = wait.until(
@@ -328,6 +392,64 @@ class AutoDeleteService:
 
                 # Wait for the password page to appear (transition animation ~2-5 s)
                 time.sleep(4)
+
+                # Cek apakah Google menolak email (akun tidak ditemukan)
+                try:
+                    err_el = driver.find_element(By.CSS_SELECTOR, '.o6cuMc, .Ekjuhf, [jsname="B34EJ"]')
+                    if err_el and err_el.text.strip():
+                        yield _sse_event("error", {
+                            "message": f"Login gagal: {err_el.text.strip()}",
+                        })
+                        return
+                except NoSuchElementException:
+                    pass
+
+                # Deteksi CAPTCHA gambar — perlu diselesaikan manual
+                if not wait_for_captcha():
+                    if headless:
+                        yield _sse_event("error", {
+                            "message": "CAPTCHA terdeteksi. Login otomatis tidak bisa "
+                                       "menyelesaikan CAPTCHA dalam mode headless. "
+                                       "Aktifkan mode 'Tampilkan Browser' lalu coba lagi "
+                                       "untuk mengisi CAPTCHA secara manual.",
+                        })
+                        return
+
+                    # Mode non-headless: tunggu user mengisi CAPTCHA manual
+                    yield _sse_event("status", {
+                        "step": "captcha",
+                        "message": "CAPTCHA terdeteksi! Silakan isi CAPTCHA secara manual "
+                                   "di jendela browser, lalu klik Berikutnya/Next.",
+                    })
+
+                    captcha_wait_start = time.time()
+                    captcha_timeout = min(timeout, 180)
+                    while time.time() - captcha_wait_start < captcha_timeout:
+                        time.sleep(3)
+                        elapsed_cap = int(time.time() - captcha_wait_start)
+                        # Captcha selesai jika field captcha sudah hilang dari DOM
+                        if wait_for_captcha():
+                            yield _sse_event("status", {
+                                "step": "captcha",
+                                "message": "CAPTCHA selesai ✓",
+                            })
+                            break
+                        yield _sse_event("status", {
+                            "step": "captcha",
+                            "message": f"Menunggu CAPTCHA diisi manual... "
+                                       f"({elapsed_cap}s/{captcha_timeout}s)",
+                            "elapsed": elapsed_cap,
+                            "timeout": captcha_timeout,
+                        })
+                    else:
+                        yield _sse_event("error", {
+                            "message": f"Timeout menunggu CAPTCHA ({captcha_timeout}s). "
+                                       f"Silakan coba lagi.",
+                        })
+                        return
+
+                    time.sleep(2)
+
                 try_click_skip()
             except Exception as e:
                 yield _sse_event("error", {

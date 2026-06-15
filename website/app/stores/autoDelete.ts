@@ -28,6 +28,7 @@ interface AutoDeleteState {
   loginLogs: AutoDeleteLogEntry[]
   loginResult: { email: string, channelName: string } | null
   loginError: string | null
+  loginCaptcha: boolean
 
   // Scan
   scanRunning: boolean
@@ -59,6 +60,7 @@ export const useAutoDeleteStore = defineStore('autoDelete', {
     loginLogs: [],
     loginResult: null,
     loginError: null,
+    loginCaptcha: false,
 
     scanRunning: false,
     scanLogs: [],
@@ -122,6 +124,7 @@ export const useAutoDeleteStore = defineStore('autoDelete', {
       this.loginLogs = []
       this.loginResult = null
       this.loginError = null
+      this.loginCaptcha = false
 
       await apiStream(
         '/api/v1/auto-delete/login',
@@ -130,6 +133,8 @@ export const useAutoDeleteStore = defineStore('autoDelete', {
           const type: string = event.type ?? 'status'
 
           if (type === 'status') {
+            // Tandai jika sedang menunggu CAPTCHA diisi manual
+            this.loginCaptcha = event.step === 'captcha'
             this.loginLogs.push({
               type,
               step: event.step,
@@ -138,6 +143,7 @@ export const useAutoDeleteStore = defineStore('autoDelete', {
             })
           } else if (type === 'done') {
             const { $i18n } = useNuxtApp()
+            this.loginCaptcha = false
             this.loginLogs.push({
               type,
               message: event.message ?? $i18n.t('autoDelete.loginSuccess'),
@@ -149,6 +155,7 @@ export const useAutoDeleteStore = defineStore('autoDelete', {
             }
           } else if (type === 'error') {
             const { $i18n } = useNuxtApp()
+            this.loginCaptcha = false
             this.loginError = event.message ?? $i18n.t('autoDelete.loginFailed')
             this.loginLogs.push({
               type,
@@ -330,6 +337,7 @@ export const useAutoDeleteStore = defineStore('autoDelete', {
       this.loginLogs = []
       this.loginResult = null
       this.loginError = null
+      this.loginCaptcha = false
     },
 
     resetScan() {
