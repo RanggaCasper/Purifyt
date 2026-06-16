@@ -21,13 +21,9 @@ Purifyt helps build and maintain YouTube comment datasets for online gambling co
 
 The backend stores data in MySQL using async SQLAlchemy. Authentication uses JWT access and refresh tokens with token blacklisting. Long-running explorer flows stream progress through server-sent events.
 
-## Screenshots
+## Prediction Workflow
+The prediction workflow takes raw comments, cleans the text, runs inference through a BERT model, and stores the predicted label alongside the original comment.
 
-Landing page:
-
-![Purifyt landing page](docs/assets/landing.png)
-
-Prediction page:
 
 ![Purifyt prediction page](docs/assets/predict.png)
 
