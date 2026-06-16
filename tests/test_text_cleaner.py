@@ -11,7 +11,7 @@ database (Cherokee, Thai, CJK kanji substitutes, etc.).
 
 import pytest
 
-from app.utils.text_cleaner import clean_comment
+from app.shared.utils.text_cleaner import clean_comment
 
 EXPECTED = "kantorbola"
 

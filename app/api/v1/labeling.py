@@ -4,13 +4,13 @@ from typing import Optional, List, Literal
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config.logging_config import get_logger
+from app.core.logging import get_logger
 from app.db.connection import get_db
 from app.db.models import Comment
-from app.db.repositories.comment_repository import CommentRepository
-from app.core.schemas import CommentResponse
-from app.core.services.auth_service import get_current_user
-from app.utils.response_formatter import APIResponse, success_response
+from app.modules.datasets.comment_repository import CommentRepository
+from app.modules.datasets.schemas import CommentResponse
+from app.modules.auth.service import get_current_user
+from app.shared.utils.response_formatter import APIResponse, success_response
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/labeling", tags=["Labeling"])
@@ -64,7 +64,7 @@ class BulkManualLabelResponse(BaseModel):
 @router.post("/predict", response_model=APIResponse)
 async def predict_single(payload: PredictRequest):
     """Predict a single comment text."""
-    from app.core.services.model_service import predict
+    from app.modules.labeling.service import predict
     logger.debug("[LABELING] Predict single text (len=%d)", len(payload.text))
     try:
         result = predict(payload.text)
@@ -78,7 +78,7 @@ async def predict_single(payload: PredictRequest):
 @router.post("/predict/batch", response_model=APIResponse)
 async def predict_batch(payload: BatchPredictRequest):
     """Predict a batch of comment texts."""
-    from app.core.services.model_service import predict_batch as pb
+    from app.modules.labeling.service import predict_batch as pb
     logger.info("[LABELING] Predict batch count=%d", len(payload.texts))
     try:
         results = pb(payload.texts)
@@ -101,7 +101,7 @@ async def label_dataset(
     Cleans each comment (remove emoji, lowercase), stores clean_comment,
     and sets predicted_label to 0 (non judi) or 1 (judi online).
     """
-    from app.core.services.model_service import predict_batch as pb
+    from app.modules.labeling.service import predict_batch as pb
 
     logger.info("[LABELING] Auto-label dataset_id=%d", dataset_id)
     result = await db.execute(

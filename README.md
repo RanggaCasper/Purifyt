@@ -56,7 +56,7 @@ The prediction workflow takes raw comments, cleans the text, runs inference thro
 ### Backend
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/RanggaCasper/Purifyt.git
 cd Purifyt
 pip install -r requirements.txt
 cp .env.example .env
@@ -74,7 +74,7 @@ Run the API:
 uvicorn app.main:app --reload
 ```
 
-Open `http://localhost:8000/docs` for the Swagger UI.
+Open `http://localhost:51441/docs` for the Swagger UI.
 
 ### Website
 

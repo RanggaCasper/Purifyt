@@ -5,7 +5,7 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from app.db.connection import AsyncSessionLocal
-from app.db.repositories.comment_repository import CommentRepository
+from app.modules.datasets.comment_repository import CommentRepository
 
 
 async def main():

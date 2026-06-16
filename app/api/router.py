@@ -9,7 +9,7 @@ from app.api.v1.explorer import router as explorer_router
 from app.api.v1.channel_explorer import router as channel_explorer_router
 from app.api.v1.auto_delete import router as auto_delete_router
 from app.api.v1.settings import router as settings_router
-from app.core.services.auth_service import get_current_user
+from app.modules.auth.service import get_current_user
 
 api_router = APIRouter(prefix="/api/v1")
 

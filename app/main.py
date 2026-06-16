@@ -6,11 +6,11 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.config.logging_config import setup_logging, get_logger
-from app.config.settings import get_settings
+from app.core.logging import setup_logging, get_logger
+from app.core.config import get_settings
 from app.db.connection import create_tables, engine
 from app.api.router import api_router
-from app.utils.response_formatter import error_response
+from app.shared.utils.response_formatter import error_response
 
 # Initialize logging FIRST — before any logger is used
 setup_logging()
@@ -22,7 +22,7 @@ settings = get_settings()
 def _preload_ml_model():
     """Load ML model di background thread saat startup."""
     try:
-        from app.core.services.model_service import _load_model
+        from app.modules.labeling.service import _load_model
         _load_model()
         logger.info("[STARTUP] ML model berhasil dimuat di background")
     except Exception as e:
@@ -97,7 +97,7 @@ app.include_router(api_router)
 
 @app.get("/", tags=["Health"])
 async def root():
-    from app.utils.response_formatter import success_response
+    from app.shared.utils.response_formatter import success_response
     return success_response(
         data={
             "app": settings.APP_NAME,
@@ -110,5 +110,5 @@ async def root():
 
 @app.get("/health", tags=["Health"])
 async def health():
-    from app.utils.response_formatter import success_response
+    from app.shared.utils.response_formatter import success_response
     return success_response(data={"status": "ok"}, message="Healthy")

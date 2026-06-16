@@ -5,14 +5,14 @@ from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config.logging_config import get_logger
-from app.config.settings import get_settings
+from app.core.logging import get_logger
+from app.core.config import get_settings
 from app.db.connection import get_db
-from app.db.repositories.user_repository import UserRepository
-from app.db.repositories.refresh_token_repository import RefreshTokenRepository
-from app.core.schemas import LoginRequest, Token, UserCreate, UserResponse
-from app.utils.response_formatter import APIResponse, success_response
-from app.core.services.auth_service import (
+from app.modules.auth.repository import UserRepository
+from app.modules.auth.refresh_token_repository import RefreshTokenRepository
+from app.modules.auth.schemas import LoginRequest, Token, UserCreate, UserResponse
+from app.shared.utils.response_formatter import APIResponse, success_response
+from app.modules.auth.service import (
     hash_password,
     verify_password,
     create_access_token,

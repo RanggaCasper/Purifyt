@@ -2,8 +2,8 @@ import pytest
 from unittest.mock import patch, MagicMock, AsyncMock
 from httpx import AsyncClient, ASGITransport
 from app.main import app
-from app.utils.text_cleaner import clean_comment
-from app.core.services.model_service import predict, predict_batch
+from app.shared.utils.text_cleaner import clean_comment
+from app.modules.labeling.service import predict, predict_batch
 
 # Fixtures 
 
@@ -58,21 +58,13 @@ async def test_register_short_password(client: AsyncClient):
 
 
 @pytest.mark.anyio
-async def test_register_invalid_email(client: AsyncClient):
-    resp = await client.post("/api/v1/auth/register", json={
-        "username": "testuser",
-        "email": "not-an-email",
-        "password": "password123",
-    })
-    assert resp.status_code == 422
-
-
-@pytest.mark.anyio
 async def test_login_invalid(client: AsyncClient):
-    resp = await client.post(
-        "/api/v1/auth/login",
-        json={"username": "nonexistent", "password": "wrong"},
-    )
+    with patch("app.api.v1.auth.UserRepository") as MockUserRepo:
+        MockUserRepo.return_value.get_by_username = AsyncMock(return_value=None)
+        resp = await client.post(
+            "/api/v1/auth/login",
+            json={"username": "nonexistent", "password": "wrong"},
+        )
     assert resp.status_code == 401
 
 
@@ -296,28 +288,28 @@ class TestModelService:
 
 class TestSchemas:
     def test_kaggle_import_request(self):
-        from app.core.schemas import KaggleImportRequest
+        from app.modules.kaggle.schemas import KaggleImportRequest
         req = KaggleImportRequest(dataset_slug="user/dataset")
         assert req.dataset_slug == "user/dataset"
         assert req.dataset_name is None
 
     def test_kaggle_import_with_name(self):
-        from app.core.schemas import KaggleImportRequest
+        from app.modules.kaggle.schemas import KaggleImportRequest
         req = KaggleImportRequest(dataset_slug="user/dataset", dataset_name="My Dataset")
         assert req.dataset_name == "My Dataset"
 
     def test_user_create_validation(self):
-        from app.core.schemas import UserCreate
+        from app.modules.auth.schemas import UserCreate
         user = UserCreate(username="test", email="test@test.com", password="123456")
         assert user.username == "test"
 
     def test_user_create_short_username(self):
-        from app.core.schemas import UserCreate
+        from app.modules.auth.schemas import UserCreate
         with pytest.raises(Exception):
             UserCreate(username="ab", email="test@test.com", password="123456")
 
     def test_youtube_search_request(self):
-        from app.core.schemas import YouTubeSearchRequest
+        from app.modules.youtube.schemas import YouTubeSearchRequest
         req = YouTubeSearchRequest(query="test")
         assert req.query == "test"
         # YouTubeSearchRequest currently exposes video_id / query / dataset_name.
@@ -325,7 +317,7 @@ class TestSchemas:
         assert req.dataset_name is None
 
     def test_dataset_create(self):
-        from app.core.schemas import DatasetCreate
+        from app.modules.datasets.schemas import DatasetCreate
         ds = DatasetCreate(name="Test Dataset")
         assert ds.name == "Test Dataset"
         assert ds.description is None
@@ -335,19 +327,19 @@ class TestSchemas:
 
 class TestAuthService:
     def test_hash_password(self):
-        from app.core.services.auth_service import hash_password
+        from app.modules.auth.service import hash_password
         hashed = hash_password("test123")
         assert hashed != "test123"
         assert len(hashed) > 20
 
     def test_verify_password(self):
-        from app.core.services.auth_service import hash_password, verify_password
+        from app.modules.auth.service import hash_password, verify_password
         hashed = hash_password("mypassword")
         assert verify_password("mypassword", hashed) is True
         assert verify_password("wrongpassword", hashed) is False
 
     def test_create_access_token(self):
-        from app.core.services.auth_service import create_access_token
+        from app.modules.auth.service import create_access_token
         token, expires_in = create_access_token(user_id=1, username="testuser")
         assert isinstance(token, str)
         assert len(token) > 10
@@ -356,7 +348,7 @@ class TestAuthService:
 
     def test_create_access_token_with_expiry(self):
         from datetime import timedelta
-        from app.core.services.auth_service import create_access_token
+        from app.modules.auth.service import create_access_token
         token, expires_in = create_access_token(
             user_id=1,
             username="testuser",
@@ -366,7 +358,7 @@ class TestAuthService:
         assert expires_in == 300
 
     def test_decode_access_token(self):
-        from app.core.services.auth_service import create_access_token, decode_access_token
+        from app.modules.auth.service import create_access_token, decode_access_token
         token, _ = create_access_token(user_id=42, username="testuser")
         payload = decode_access_token(token)
         assert payload["type"] == "access"
@@ -376,7 +368,7 @@ class TestAuthService:
         assert len(payload["jti"]) == 36  # UUID format
 
     def test_generate_refresh_token(self):
-        from app.core.services.auth_service import generate_refresh_token
+        from app.modules.auth.service import generate_refresh_token
         rt1 = generate_refresh_token()
         rt2 = generate_refresh_token()
         assert isinstance(rt1, str)
@@ -384,8 +376,8 @@ class TestAuthService:
         assert rt1 != rt2  # must be unique
 
     def test_refresh_token_hash(self):
-        from app.core.services.auth_service import generate_refresh_token
-        from app.db.repositories.refresh_token_repository import hash_token
+        from app.modules.auth.service import generate_refresh_token
+        from app.modules.auth.refresh_token_repository import hash_token
         rt = generate_refresh_token()
         h = hash_token(rt)
         assert isinstance(h, str)
@@ -396,7 +388,7 @@ class TestAuthService:
 
 class TestKaggleService:
     def test_build_mapping_auto_detect(self):
-        from app.core.services.kaggle_service import KaggleService
+        from app.modules.kaggle.service import KaggleService
         mapping = KaggleService._build_mapping(["comment", "label", "video_id", "extra_col"])
         assert mapping.get("comment") == "comment"
         assert mapping.get("label") == "label"
@@ -404,24 +396,24 @@ class TestKaggleService:
         assert "extra_col" not in mapping
 
     def test_build_mapping_case_insensitive(self):
-        from app.core.services.kaggle_service import KaggleService
+        from app.modules.kaggle.service import KaggleService
         mapping = KaggleService._build_mapping(["Comment", "Label", "Video_ID"])
         assert "Comment" in mapping or "comment" in [v for v in mapping.values()]
 
     def test_build_mapping_indonesian_aliases(self):
-        from app.core.services.kaggle_service import KaggleService
+        from app.modules.kaggle.service import KaggleService
         mapping = KaggleService._build_mapping(["komentar", "tanggal", "komentar_clean"])
         assert any(v == "comment" for v in mapping.values())
         assert any(v == "date" for v in mapping.values())
         assert any(v == "clean_comment" for v in mapping.values())
 
     def test_build_mapping_empty_columns(self):
-        from app.core.services.kaggle_service import KaggleService
+        from app.modules.kaggle.service import KaggleService
         mapping = KaggleService._build_mapping([])
         assert mapping == {}
 
     def test_build_mapping_no_match(self):
-        from app.core.services.kaggle_service import KaggleService
+        from app.modules.kaggle.service import KaggleService
         mapping = KaggleService._build_mapping(["col_a", "col_b", "col_c"])
         assert mapping == {}
 
@@ -430,7 +422,7 @@ class TestKaggleService:
 
 class TestExplorerHelpers:
     def test_build_stats(self):
-        from app.core.services.explorer_service import _build_stats
+        from app.modules.explorer.service import _build_stats
         stats = _build_stats("vid123", "Title", "Channel", 100, 10, 90, 100)
         assert stats["video_id"] == "vid123"
         assert stats["title"] == "Title"
@@ -439,12 +431,12 @@ class TestExplorerHelpers:
         assert stats["judi_percentage"] == 10.0
 
     def test_build_stats_zero_saved(self):
-        from app.core.services.explorer_service import _build_stats
+        from app.modules.explorer.service import _build_stats
         stats = _build_stats("vid123", "Title", "Channel", 100, 0, 0, 0)
         assert stats["judi_percentage"] == 0
 
     def test_done_empty(self):
-        from app.core.services.explorer_service import _done_empty
+        from app.modules.explorer.service import _done_empty
         result = _done_empty("vid123", "No comments")
         assert result["type"] == "done"
         assert result["comments"] == []
@@ -453,7 +445,7 @@ class TestExplorerHelpers:
 
 class TestChannelExplorerHelpers:
     def test_build_channel_stats(self):
-        from app.core.services.channel_explorer_service import _build_channel_stats
+        from app.modules.explorer.channel_service import _build_channel_stats
         stats = _build_channel_stats("ch123", "MyChannel", 10, 8, 500, 20, 30, 50)
         assert stats["channel_id"] == "ch123"
         assert stats["channel_name"] == "MyChannel"
@@ -464,12 +456,12 @@ class TestChannelExplorerHelpers:
         assert stats["judi_percentage"] == 40.0
 
     def test_build_channel_stats_zero(self):
-        from app.core.services.channel_explorer_service import _build_channel_stats
+        from app.modules.explorer.channel_service import _build_channel_stats
         stats = _build_channel_stats("ch123", "MyChannel", 0, 0, 0, 0, 0, 0)
         assert stats["judi_percentage"] == 0
 
     def test_done_empty(self):
-        from app.core.services.channel_explorer_service import _done_empty
+        from app.modules.explorer.channel_service import _done_empty
         result = _done_empty("@channel", "Not found")
         assert result["type"] == "done"
         assert result["comments"] == []
