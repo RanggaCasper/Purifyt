@@ -59,9 +59,12 @@ async def run_explorer(
         final_event = None
 
         try:
-            async for event in explore_video_stream(
-                video_id=payload.video_id,
-            ):
+            try:
+                stream = explore_video_stream(video_id=payload.video_id, db=db)
+            except TypeError:
+                stream = explore_video_stream(video_id=payload.video_id)
+
+            async for event in stream:
                 event_type = event.get("type", "progress")
 
                 if event_type == "done":

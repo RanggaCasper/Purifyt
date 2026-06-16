@@ -11,6 +11,7 @@ settings = get_settings()
 
 MODEL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "model")
 MODEL_DIR = os.path.normpath(MODEL_DIR)
+FALLBACK_MODEL_ID = "RaCas/judi-online"
 
 _tokenizer = None
 _model = None
@@ -30,15 +31,32 @@ def _load_model():
     except ImportError:
         raise RuntimeError("torch is not installed. Run: pip install torch")
 
+    model_source = MODEL_DIR
     if not os.path.isdir(MODEL_DIR):
-        raise FileNotFoundError(
-            f"Model directory not found at '{MODEL_DIR}'. "
-            "Place your model files (config.json, model.safetensors, tokenizer, etc.) in the 'model/' folder."
+        logger.warning(
+            "[MODEL] Local model directory not found at %s, using Hugging Face model %s",
+            MODEL_DIR,
+            FALLBACK_MODEL_ID,
         )
+        model_source = FALLBACK_MODEL_ID
 
-    logger.info("[MODEL] Loading ML model from %s...", MODEL_DIR)
-    _tokenizer = AutoTokenizer.from_pretrained(MODEL_DIR)
-    _model = AutoModelForSequenceClassification.from_pretrained(MODEL_DIR)
+    logger.info("[MODEL] Loading ML model from %s...", model_source)
+    try:
+        _tokenizer = AutoTokenizer.from_pretrained(model_source)
+        _model = AutoModelForSequenceClassification.from_pretrained(model_source)
+    except (OSError, ValueError) as e:
+        if model_source == FALLBACK_MODEL_ID:
+            raise
+
+        logger.warning(
+            "[MODEL] Failed to load local model from %s, using Hugging Face model %s: %s",
+            MODEL_DIR,
+            FALLBACK_MODEL_ID,
+            e,
+        )
+        _tokenizer = AutoTokenizer.from_pretrained(FALLBACK_MODEL_ID)
+        _model = AutoModelForSequenceClassification.from_pretrained(FALLBACK_MODEL_ID)
+
     _model.eval()
     logger.info("[MODEL] ML model loaded successfully")
 

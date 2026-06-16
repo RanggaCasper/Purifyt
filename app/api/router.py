@@ -8,6 +8,7 @@ from app.api.v1.labeling import router as labeling_router
 from app.api.v1.explorer import router as explorer_router
 from app.api.v1.channel_explorer import router as channel_explorer_router
 from app.api.v1.auto_delete import router as auto_delete_router
+from app.api.v1.settings import router as settings_router
 from app.core.services.auth_service import get_current_user
 
 api_router = APIRouter(prefix="/api/v1")
@@ -23,3 +24,4 @@ api_router.include_router(labeling_router, dependencies=_auth_dep)
 api_router.include_router(explorer_router, dependencies=_auth_dep)
 api_router.include_router(channel_explorer_router, dependencies=_auth_dep)
 api_router.include_router(auto_delete_router, dependencies=_auth_dep)
+api_router.include_router(settings_router, dependencies=_auth_dep)

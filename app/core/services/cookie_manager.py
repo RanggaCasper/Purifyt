@@ -1,5 +1,6 @@
 import json
 import re
+import sys
 from pathlib import Path
 from typing import Optional
 
@@ -10,7 +11,10 @@ from app.config.logging_config import get_logger
 logger = get_logger(__name__)
 
 # Default cookie root
-_ROOT_DIR = Path(__file__).resolve().parent.parent.parent.parent
+if getattr(sys, "frozen", False):
+    _ROOT_DIR = Path(sys.executable).resolve().parent
+else:
+    _ROOT_DIR = Path(__file__).resolve().parent.parent.parent.parent
 COOKIES_DIR = _ROOT_DIR / "cookies"
 
 def _sanitize_email_folder(email: str) -> str:

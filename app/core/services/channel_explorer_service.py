@@ -1,6 +1,7 @@
 ﻿import asyncio
 import random
 from typing import AsyncGenerator, List
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.logging_config import get_logger
 from app.core.services.youtube_service import YouTubeService
@@ -14,6 +15,7 @@ async def _predict_batch_async(texts: list[str]) -> list[dict]:
 
 async def explore_channel_stream(
     channel_input: str,
+    db: AsyncSession,
     max_videos: int = 10,
 ) -> AsyncGenerator[dict, None]:
     """
@@ -36,7 +38,7 @@ async def explore_channel_stream(
       - done: all videos processed, aggregate stats
       - error
     """
-    yt = YouTubeService()
+    yt = YouTubeService(db)
 
     yield {
         "type": "channel_info_fetch",

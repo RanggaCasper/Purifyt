@@ -56,6 +56,7 @@ def _save_cookie_account_sync(
 
     settings = get_settings()
     sync_engine = create_engine(settings.SYNC_DATABASE_URL, echo=False)
+    updated_at_sql = "CURRENT_TIMESTAMP" if settings.SYNC_DATABASE_URL.startswith("sqlite") else "NOW()"
 
     try:
         with SyncSession(sync_engine) as session:
@@ -73,7 +74,7 @@ def _save_cookie_account_sync(
                         "    cookie_count = :cookie_count, "
                         "    channel_name = :channel_name, "
                         "    is_active = 1, "
-                        "    updated_at = NOW() "
+                        f"    updated_at = {updated_at_sql} "
                         "WHERE email = :email"
                     ),
                     {

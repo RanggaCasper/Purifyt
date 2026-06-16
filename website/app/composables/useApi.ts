@@ -56,8 +56,7 @@ const NO_RETRY_PATHS = ['/auth/login', '/auth/refresh', '/auth/register', '/auth
  * sends the HttpOnly refresh cookie when needed.
  */
 export function useApi() {
-  const config = useRuntimeConfig()
-  const baseURL = config.public.apiBase as string
+  const { apiBase, resolveApiBase } = useApiBase()
   const auth = useAuth()
 
   function unwrap<T>(response: ApiResponse<T>): T {
@@ -100,6 +99,7 @@ export function useApi() {
 
     async function execute(hdrs: Record<string, string>): Promise<T> {
       let raw: ApiResponse<T>
+      const baseURL = await resolveApiBase()
 
       try {
         raw = await $fetch<ApiResponse<T>>(`${baseURL}${url}`, {
@@ -193,6 +193,7 @@ export function useApi() {
     }
 
     try {
+      const baseURL = await resolveApiBase()
       let response = await fetch(`${baseURL}${url}`, {
         method: 'POST',
         headers: streamHeaders(auth.accessToken.value),
@@ -233,5 +234,5 @@ export function useApi() {
     }
   }
 
-  return { apiFetch, apiStream, baseURL }
+  return { apiFetch, apiStream, baseURL: apiBase, resolveApiBase }
 }

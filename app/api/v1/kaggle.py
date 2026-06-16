@@ -20,13 +20,17 @@ async def _do_import(
     db: AsyncSession,
     owner_id: int,
     dataset_name: str = None,
+    column_mapping: dict[str, str] | None = None,
 ) -> DatasetResponse:
     """Shared logic for Kaggle import."""
     logger.info("[KAGGLE] Starting import — slug='%s' owner_id=%d", dataset_slug, owner_id)
-    service = KaggleService()
+    service = KaggleService(db)
 
     try:
-        result = await service.import_dataset(dataset_slug=dataset_slug)
+        result = await service.import_dataset(
+            dataset_slug=dataset_slug,
+            column_mapping=column_mapping,
+        )
     except HTTPException:
         raise
     except Exception as e:
@@ -46,7 +50,8 @@ async def _do_import(
         source=DataSource.KAGGLE,
         description=(
             f"Imported from Kaggle dataset '{dataset_slug}'. "
-            f"Columns found: {result['columns_found']}"
+            f"Columns found: {result['columns_found']}. "
+            f"Column mapping: {result.get('column_mapping', {})}"
         ),
         source_url=result["source_url"],
         owner_id=owner_id,
@@ -103,6 +108,11 @@ async def import_kaggle_dataset(
     ```json
     { "dataset_slug": "yaemico/judionline" }
     ```
+
+    Optional manual column mapping uses database field -> Kaggle column:
+    ```json
+    { "dataset_slug": "user/data", "column_mapping": { "comment": "text", "author": "username" } }
+    ```
     """
     return success_response(
         data=await _do_import(
@@ -110,6 +120,7 @@ async def import_kaggle_dataset(
             db=db,
             owner_id=current_user.id,
             dataset_name=payload.dataset_name,
+            column_mapping=payload.column_mapping,
         ),
         message="Kaggle dataset imported successfully",
     )

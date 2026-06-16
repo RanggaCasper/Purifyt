@@ -30,7 +30,10 @@ from logging.handlers import TimedRotatingFileHandler
 # ──────────────────────────────────────────────────────────────
 # Constants
 # ──────────────────────────────────────────────────────────────
-LOG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "logs")
+if getattr(sys, "frozen", False):
+    LOG_DIR = os.path.join(os.path.dirname(sys.executable), "logs")
+else:
+    LOG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "logs")
 LOG_DIR = os.path.normpath(LOG_DIR)
 
 LOG_FILE = os.path.join(LOG_DIR, "purifyt.log")

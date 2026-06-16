@@ -27,9 +27,10 @@ router = APIRouter(prefix="/youtube", tags=["YouTube"])
 async def search_youtube_videos(
     query: str,
     max_results: int = 5,
+    db: AsyncSession = Depends(get_db),
 ):
     """Search YouTube for videos matching the query. Does NOT save to DB."""
-    service = YouTubeService()
+    service = YouTubeService(db)
     videos = await service.search_videos(query, max_results=max_results)
     return success_response(data=[YouTubeVideoInfo(**v) for v in videos])
 
@@ -46,7 +47,7 @@ async def import_youtube_comments(
     - If `video_id` is provided, fetch comments directly.
     - Otherwise, search for the query and use the first result.
     """
-    service = YouTubeService()
+    service = YouTubeService(db)
 
     video_id = payload.video_id
     if not video_id:
@@ -103,6 +104,7 @@ async def import_youtube_comments(
 @router.post("/scan", response_model=APIResponse)
 async def scan_youtube_comments(
     payload: YouTubeSearchRequest,
+    db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     """
@@ -112,7 +114,7 @@ async def scan_youtube_comments(
     - Otherwise, search for the query and use the first result.
     - Returns each comment with its predicted label and confidence scores.
     """
-    service = YouTubeService()
+    service = YouTubeService(db)
 
     video_id = payload.video_id
     if not video_id:

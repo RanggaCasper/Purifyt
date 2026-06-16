@@ -53,13 +53,18 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS – allow_credentials requires explicit origins (not "*")
+cors_origins = settings.CORS_ORIGINS
+allow_all_origins = "*" in cors_origins
+
+# CORS - desktop builds may use tauri/file origins. When "*" is configured,
+# use an origin regex so credentialed requests still get the concrete origin.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
+    allow_origins=[] if allow_all_origins else cors_origins,
+    allow_origin_regex=".*" if allow_all_origins else None,
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["Authorization", "Content-Type"],
+    allow_headers=["*"],
 )
 
 

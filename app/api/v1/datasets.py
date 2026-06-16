@@ -52,6 +52,36 @@ async def list_datasets(
     return paginated_response(items=results, total=total, page=page, per_page=per_page)
 
 
+@router.post("/", response_model=APIResponse)
+async def create_dataset(
+    payload: DatasetCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    name = payload.name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Dataset name is required")
+
+    logger.info("[DATASETS] Create manual dataset name='%s' user_id=%d", name, current_user.id)
+    dataset = await DatasetRepository(db).create(
+        name=name,
+        description=payload.description.strip() if payload.description else None,
+        source=DataSource.MANUAL,
+        owner_id=current_user.id,
+    )
+    await db.commit()
+    return success_response(data=DatasetResponse(
+        id=dataset.id,
+        name=dataset.name,
+        description=dataset.description,
+        source=dataset.source.value,
+        source_url=dataset.source_url,
+        owner_id=dataset.owner_id,
+        created_at=dataset.created_at,
+        comment_count=0,
+    ))
+
+
 @router.get("/search/comments", response_model=APIResponse)
 async def search_comments(
     keyword: str = Query(..., min_length=1),

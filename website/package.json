@@ -1,10 +1,16 @@
 {
-  "name": "Purifyt-FE",
+  "name": "Purifyt",
+  "version": "1.0.0",
+  "description": "Purifyt desktop application",
+  "author": "RanggaCasper",
   "private": true,
   "type": "module",
   "scripts": {
     "build": "nuxt build",
+    "build:desktop": "tauri build",
     "dev": "nuxt dev",
+    "desktop": "tauri dev",
+    "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "lint": "eslint .",
@@ -22,9 +28,11 @@
   },
   "devDependencies": {
     "@nuxt/eslint": "^1.15.1",
+    "@tauri-apps/cli": "^2.9.5",
     "eslint": "^10.0.0",
     "typescript": "^5.9.3",
     "vue-tsc": "^3.2.4"
   },
-  "packageManager": "pnpm@10.29.3"
+  "packageManager": "pnpm@10.29.3",
+  "main": "src-tauri/target/release/Purifyt.exe"
 }

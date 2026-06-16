@@ -1,0 +1,2 @@
+# Ignore Tauri build artifacts
+/target

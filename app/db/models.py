@@ -18,7 +18,6 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     username = Column(String(100), unique=True, nullable=False, index=True)
-    email = Column(String(255), unique=True, nullable=False, index=True)
     hashed_password = Column(String(255), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -74,6 +73,15 @@ class RefreshToken(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", backref="refresh_tokens")
+
+
+class AppSetting(Base):
+    """Stores application-level configuration values in the database."""
+    __tablename__ = "app_settings"
+
+    key = Column(String(100), primary_key=True)
+    value = Column(Text, nullable=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
 class CookieAccount(Base):
