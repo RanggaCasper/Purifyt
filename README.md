@@ -2,6 +2,16 @@
 
 A **FastAPI** backend for collecting, storing, and managing YouTube comment datasets. Supports importing data from **YouTube Data API v3** and **Kaggle**, stored in **MySQL**.
 
+## Table of Contents
+
+- [Features](#features)
+- [Dataset Schema](#dataset-schema)
+- [Project Structure](#project-structure)
+- [Quick Start](#quick-start)
+- [API Endpoints](#api-endpoints)
+- [Token Lifecycle](#token-lifecycle)
+- [Desktop App](#desktop-app)
+
 ## Features
 
 - **YouTube API v3 Integration** – Search videos and import comments directly
@@ -15,6 +25,7 @@ A **FastAPI** backend for collecting, storing, and managing YouTube comment data
 - **Text Cleaner** – Emoji removal, repeated punctuation collapse, zero-width char strip
 - **Source Tracking** – Every comment records its origin (YouTube API, Kaggle, or manual)
 - **RESTful API** – Full CRUD with Swagger docs at `/docs`
+- **Desktop App Support** – Tauri shell for running the web UI as a desktop application
 
 ## Dataset Schema
 
@@ -44,11 +55,10 @@ project/
 │   │   ├── router.py            # Root API router
 │   │   └── v1/
 │   │       ├── auth.py          # Register / Login / Refresh / Logout / Me
-│   │       ├── users.py         # User management
 │   │       ├── datasets.py      # Dataset CRUD + comment listing
 │   │       ├── youtube.py       # YouTube search & import
 │   │       ├── kaggle.py        # Kaggle dataset import
-│   │       ├── labeling.py      # Predict & auto-label endpoints
+│   │       ├── settings.py      # App settings endpoints
 │   │       ├── explorer.py      # Video explorer (SSE)
 │   │       └── channel_explorer.py  # Channel explorer (SSE)
 │   ├── core/
@@ -66,15 +76,19 @@ project/
 │   │   └── repositories/
 │   │       ├── user_repository.py
 │   │       ├── dataset_repository.py
-│   │       └── comment_repository.py
+│   │       ├── comment_repository.py
+│   │       └── app_setting_repository.py
 │   ├── config/
 │   │   └── settings.py          # Pydantic settings from .env
 │   └── utils/
 │       └── text_cleaner.py      # Comment text cleaning pipeline
+├── website/                     # Nuxt frontend and Tauri desktop shell
+│   ├── app/                     # Nuxt application
+│   └── src-tauri/               # Tauri desktop app configuration
 ├── model/                       # BERT model files (safetensors)
 ├── tests/
-│   └── test_api.py
-├── Dockerfile
+│   └── test_auth_flow.py
+├── purifyt.spec                 # PyInstaller spec
 ├── requirements.txt
 ├── postman_collection.json
 └── README.md
@@ -111,6 +125,21 @@ uvicorn app.main:app --reload
 
 Open **http://localhost:8000/docs** for interactive Swagger UI.
 
+### 5. Run Website
+
+```bash
+cd website
+pnpm install
+pnpm dev
+```
+
+### 6. Run Desktop App
+
+```bash
+cd website
+pnpm tauri dev
+```
+
 ## API Endpoints
 
 ### Auth
@@ -141,12 +170,6 @@ Open **http://localhost:8000/docs** for interactive Swagger UI.
 ```json
 { "refresh_token": "eyJ..." }
 ```
-
-### Users
-| Method | Endpoint              | Description      |
-|--------|-----------------------|------------------|
-| GET    | `/api/v1/users/`      | List all users   |
-| GET    | `/api/v1/users/{id}`  | Get user by ID   |
 
 ### Datasets
 | Method | Endpoint                             | Description            |
@@ -181,6 +204,12 @@ Open **http://localhost:8000/docs** for interactive Swagger UI.
 | POST   | `/api/v1/explorer/run`            | Yes  | Explore a video's comments (SSE) |
 | POST   | `/api/v1/explorer/channel/run`    | Yes  | Explore a channel (SSE)          |
 
+### Settings
+| Method | Endpoint                     | Auth | Description                 |
+|--------|------------------------------|------|-----------------------------|
+| GET    | `/api/v1/settings`           | Yes  | Get application settings    |
+| PUT    | `/api/v1/settings`           | Yes  | Update application settings |
+
 ## Token Lifecycle
 
 ```
@@ -199,9 +228,8 @@ Login ─► access_token (30 min) + refresh_token (7 days)
 
 Blacklisted tokens are stored in the `token_blacklist` table and rejected on subsequent requests. Expired blacklist entries are automatically cleaned up.
 
-## Docker
+## Desktop App
 
-```bash
-docker build -t purifyt .
-docker run -p 8000:8000 --env-file .env purifyt
-```
+The desktop app is powered by Tauri in `website/src-tauri`. It uses the Nuxt frontend and can connect to the FastAPI backend through the configured API base URL.
+
+For local development, run the backend first, then start the Tauri app from the `website` directory with `pnpm tauri dev`.
