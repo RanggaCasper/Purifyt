@@ -73,12 +73,9 @@ async def register(payload: UserCreate, db: AsyncSession = Depends(get_db)):
 
     if await repo.get_by_username(payload.username):
         raise HTTPException(status_code=400, detail="Username already exists")
-    if await repo.get_by_email(payload.email):
-        raise HTTPException(status_code=400, detail="Email already registered")
 
     user = await repo.create(
         username=payload.username,
-        email=payload.email,
         hashed_password=hash_password(payload.password),
     )
     logger.info("[AUTH] User registered — id=%d username=%s", user.id, user.username)
@@ -97,22 +94,15 @@ async def login(
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Authenticate with email/username + password.
+    Authenticate with username + password.
     Returns access_token in JSON, sets refresh_token as HttpOnly cookie.
     """
     repo = UserRepository(db)
 
-    # Resolve user by email or username
-    user = None
-    if payload.email:
-        user = await repo.get_by_email(payload.email)
-    elif payload.username:
-        user = await repo.get_by_username(payload.username)
-    else:
-        raise HTTPException(status_code=400, detail="Provide email or username")
+    user = await repo.get_by_username(payload.username)
 
     if not user or not verify_password(payload.password, user.hashed_password):
-        logger.warning("[AUTH] Login failed — incorrect credentials for email=%s username=%s", payload.email, payload.username)
+        logger.warning("[AUTH] Login failed — incorrect credentials for username=%s", payload.username)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect credentials",

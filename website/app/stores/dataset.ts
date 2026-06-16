@@ -29,6 +29,17 @@ export interface Comment {
   created_at: string
 }
 
+export interface KaggleImportPayload {
+  dataset_slug: string
+  dataset_name?: string
+  column_mapping?: Record<string, string>
+}
+
+export interface ManualDatasetPayload {
+  name: string
+  description?: string
+}
+
 interface DatasetState {
   datasets: Dataset[]
   allDatasets: Dataset[]
@@ -116,6 +127,24 @@ export const useDatasetStore = defineStore('dataset', {
       await apiFetch(`/api/v1/datasets/${id}`, { method: 'DELETE' })
       this.datasets = this.datasets.filter(d => d.id !== id)
       return true
+    },
+
+    async importKaggleDataset(payload: KaggleImportPayload) {
+      const { apiFetch } = useApi()
+
+      return await apiFetch<Dataset>('/api/v1/kaggle/import', {
+        method: 'POST',
+        body: payload
+      })
+    },
+
+    async createManualDataset(payload: ManualDatasetPayload) {
+      const { apiFetch } = useApi()
+
+      return await apiFetch<Dataset>('/api/v1/datasets/', {
+        method: 'POST',
+        body: payload
+      })
     }
   }
 })

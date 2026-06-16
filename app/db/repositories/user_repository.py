@@ -6,15 +6,13 @@ from app.db.models import User
 
 logger = get_logger(__name__)
 
-
 class UserRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def create(self, username: str, email: str, hashed_password: str) -> User:
+    async def create(self, username: str, hashed_password: str) -> User:
         user = User(
             username=username,
-            email=email,
             hashed_password=hashed_password,
         )
         self.db.add(user)
@@ -29,10 +27,6 @@ class UserRepository:
 
     async def get_by_username(self, username: str) -> Optional[User]:
         result = await self.db.execute(select(User).where(User.username == username))
-        return result.scalar_one_or_none()
-
-    async def get_by_email(self, email: str) -> Optional[User]:
-        result = await self.db.execute(select(User).where(User.email == email))
         return result.scalar_one_or_none()
 
     async def get_all(self, skip: int = 0, limit: int = 100) -> List[User]:

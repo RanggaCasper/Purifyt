@@ -25,14 +25,14 @@ const getAuthState = (): AuthState => {
 }
 
 export const useAuth = () => {
-  const config = useRuntimeConfig()
-  const API = config.public.apiBase as string
+  const { resolveApiBase } = useApiBase()
 
   const state = getAuthState()
   const { accessToken, user, loading, authReady } = state
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const authFetch = <T = unknown>(url: string, opts: Record<string, any> = {}) => {
+  const authFetch = async <T = unknown>(url: string, opts: Record<string, any> = {}) => {
+    const API = await resolveApiBase()
     return $fetch<ApiResponse<T>>(`${API}${url}`, {
       ...opts,
       credentials: 'include',

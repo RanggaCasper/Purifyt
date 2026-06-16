@@ -1,6 +1,6 @@
 from datetime import datetime
-from typing import Optional, List
-from pydantic import BaseModel, EmailStr, Field
+from typing import Optional, List, Dict
+from pydantic import BaseModel, Field
 
 
 class Token(BaseModel):
@@ -15,22 +15,19 @@ class TokenData(BaseModel):
 
 
 class LoginRequest(BaseModel):
-    """Accepts email OR username + password."""
-    email: Optional[EmailStr] = None
-    username: Optional[str] = None
+    """Accepts username + password."""
+    username: str = Field(..., min_length=1)
     password: str = Field(..., min_length=1)
 
 
 class UserCreate(BaseModel):
     username: str = Field(..., min_length=3, max_length=100)
-    email: EmailStr
     password: str = Field(..., min_length=6)
 
 
 class UserResponse(BaseModel):
     id: int
     username: str
-    email: str
     created_at: datetime
 
     class Config:
@@ -109,6 +106,25 @@ class KaggleImportRequest(BaseModel):
         None,
         description="Name for the dataset (auto-generated if empty)"
     )
+    column_mapping: Optional[Dict[str, str]] = Field(
+        None,
+        description="Manual mapping from database field to Kaggle CSV column, e.g. {'comment': 'text'}"
+    )
+
+
+class AppCredentialsRequest(BaseModel):
+    youtube_api_key: Optional[str] = None
+    kaggle_username: Optional[str] = None
+    kaggle_key: Optional[str] = None
+
+
+class AppCredentialsResponse(BaseModel):
+    youtube_api_key: Optional[str] = None
+    kaggle_username: Optional[str] = None
+    kaggle_key: Optional[str] = None
+    youtube_api_key_set: bool = False
+    kaggle_username_set: bool = False
+    kaggle_key_set: bool = False
 
 
 class PaginatedResponse(BaseModel):

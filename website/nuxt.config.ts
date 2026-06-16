@@ -16,12 +16,12 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       // Override with env var NUXT_PUBLIC_API_BASE
-      apiBase: 'http://localhost:9000'
+      apiBase: 'http://127.0.0.1:51441'
     }
   },
 
   devServer: {
-    port: 3001
+    port: 3000
   },
 
   compatibilityDate: '2025-01-15',

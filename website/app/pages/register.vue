@@ -11,7 +11,6 @@ const { t } = useI18n()
 
 const form = reactive({
   username: '',
-  email: '',
   password: '',
   confirmPassword: ''
 })
@@ -31,7 +30,6 @@ async function handleRegister() {
   try {
     await register({
       username: form.username,
-      email: form.email,
       password: form.password
     })
     toast.add({ title: t('auth.accountCreated'), color: 'success' })
@@ -79,18 +77,6 @@ async function handleRegister() {
           icon="i-lucide-user"
           size="lg"
           autofocus
-          required
-          class="w-full"
-        />
-      </UFormField>
-
-      <UFormField :label="$t('common.email')">
-        <UInput
-          v-model="form.email"
-          type="email"
-          :placeholder="$t('auth.enterEmail')"
-          icon="i-lucide-mail"
-          size="lg"
           required
           class="w-full"
         />

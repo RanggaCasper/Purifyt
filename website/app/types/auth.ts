@@ -15,7 +15,6 @@ export interface TokenResponse {
 export interface User {
   id: number
   username: string
-  email: string
   created_at: string
 }
 
@@ -26,6 +25,5 @@ export interface LoginPayload {
 
 export interface RegisterPayload {
   username: string
-  email: string
   password: string
 }

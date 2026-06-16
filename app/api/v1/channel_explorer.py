@@ -75,10 +75,19 @@ async def run_channel_explorer(
         final_event = None
 
         try:
-            async for event in explore_channel_stream(
-                channel_input=payload.channel,
-                max_videos=payload.max_videos,
-            ):
+            try:
+                stream = explore_channel_stream(
+                    channel_input=payload.channel,
+                    db=db,
+                    max_videos=payload.max_videos,
+                )
+            except TypeError:
+                stream = explore_channel_stream(
+                    channel_input=payload.channel,
+                    max_videos=payload.max_videos,
+                )
+
+            async for event in stream:
                 event_type = event.get("type", "progress")
 
                 # Intercept video_ready → save to DB immediately (only if dataset_name provided)

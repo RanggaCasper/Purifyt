@@ -1,6 +1,7 @@
 import asyncio
 import random
 from typing import AsyncGenerator, List, Optional
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.logging_config import get_logger
 from app.core.services.youtube_service import YouTubeService
@@ -14,6 +15,7 @@ async def _predict_batch_async(texts: list[str]) -> list[dict]:
 
 async def explore_video_stream(
     video_id: str,
+    db: AsyncSession,
 ) -> AsyncGenerator[dict, None]:
     """
     Explore a single YouTube video:
@@ -26,7 +28,7 @@ async def explore_video_stream(
     Yields progress events with {"type": "...", ...}
     Final event type is "done" with comments list and stats.
     """
-    yt = YouTubeService()
+    yt = YouTubeService(db)
 
     yield {
         "type": "fetch_info",

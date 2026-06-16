@@ -25,14 +25,12 @@ from app.core.services.auth_service import (
 def _make_user(
     user_id: int = 1,
     username: str = "testuser",
-    email: str = "test@example.com",
     password: str = "securePass123",
 ) -> MagicMock:
     """Create a fake User ORM object."""
     user = MagicMock()
     user.id = user_id
     user.username = username
-    user.email = email
     user.hashed_password = hash_password(password)
     user.created_at = datetime(2025, 1, 1, tzinfo=timezone.utc)
     user.updated_at = datetime(2025, 1, 1, tzinfo=timezone.utc)
@@ -93,7 +91,6 @@ async def test_login_success_returns_access_token_and_cookie(client: AsyncClient
         patch(_RT_REPO) as MockRTRepo,
     ):
         repo_inst = MockUserRepo.return_value
-        repo_inst.get_by_email = AsyncMock(return_value=fake_user)
         repo_inst.get_by_username = AsyncMock(return_value=fake_user)
 
         rt_inst = MockRTRepo.return_value
@@ -101,7 +98,7 @@ async def test_login_success_returns_access_token_and_cookie(client: AsyncClient
 
         resp = await client.post(
             "/api/v1/auth/login",
-            json={"email": "test@example.com", "password": "correct-password"},
+            json={"username": "testuser", "password": "correct-password"},
         )
 
     assert resp.status_code == 200
@@ -124,11 +121,11 @@ async def test_login_invalid_credentials_returns_401(client: AsyncClient):
 
     with patch(_USER_REPO) as MockUserRepo:
         repo_inst = MockUserRepo.return_value
-        repo_inst.get_by_email = AsyncMock(return_value=fake_user)
+        repo_inst.get_by_username = AsyncMock(return_value=fake_user)
 
         resp = await client.post(
             "/api/v1/auth/login",
-            json={"email": "test@example.com", "password": "wrong"},
+            json={"username": "testuser", "password": "wrong"},
         )
 
     assert resp.status_code == 401
@@ -136,28 +133,27 @@ async def test_login_invalid_credentials_returns_401(client: AsyncClient):
 
 @pytest.mark.anyio
 async def test_login_user_not_found_returns_401(client: AsyncClient):
-    """Unknown email → 401."""
+    """Unknown username → 401."""
     with patch(_USER_REPO) as MockUserRepo:
         repo_inst = MockUserRepo.return_value
-        repo_inst.get_by_email = AsyncMock(return_value=None)
+        repo_inst.get_by_username = AsyncMock(return_value=None)
 
         resp = await client.post(
             "/api/v1/auth/login",
-            json={"email": "nobody@example.com", "password": "anything"},
+            json={"username": "nobody", "password": "anything"},
         )
 
     assert resp.status_code == 401
 
 
 @pytest.mark.anyio
-async def test_login_no_email_no_username_returns_400(client: AsyncClient):
-    """Neither email nor username provided → 400."""
+async def test_login_no_username_returns_422(client: AsyncClient):
+    """Missing username → 422."""
     resp = await client.post(
         "/api/v1/auth/login",
         json={"password": "anything"},
     )
-    # Depending on validation, could be 400 or 422
-    assert resp.status_code in (400, 422)
+    assert resp.status_code == 422
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -181,7 +177,6 @@ async def test_me_with_valid_access_token(client: AsyncClient):
     assert resp.status_code == 200
     data = resp.json()["data"]
     assert data["username"] == "testuser"
-    assert data["email"] == "test@example.com"
 
 
 @pytest.mark.anyio
@@ -375,14 +370,12 @@ async def test_register_success(client: AsyncClient):
     with patch(_USER_REPO) as MockUserRepo:
         repo_inst = MockUserRepo.return_value
         repo_inst.get_by_username = AsyncMock(return_value=None)
-        repo_inst.get_by_email = AsyncMock(return_value=None)
         repo_inst.create = AsyncMock(return_value=fake_user)
 
         resp = await client.post(
             "/api/v1/auth/register",
             json={
                 "username": "testuser",
-                "email": "test@example.com",
                 "password": "securePass123",
             },
         )
@@ -406,7 +399,6 @@ async def test_register_duplicate_username(client: AsyncClient):
             "/api/v1/auth/register",
             json={
                 "username": "testuser",
-                "email": "other@example.com",
                 "password": "securePass123",
             },
         )
@@ -415,27 +407,6 @@ async def test_register_duplicate_username(client: AsyncClient):
 
 
 @pytest.mark.anyio
-async def test_register_duplicate_email(client: AsyncClient):
-    """Duplicate email → 400."""
-    fake_user = _make_user()
-
-    with patch(_USER_REPO) as MockUserRepo:
-        repo_inst = MockUserRepo.return_value
-        repo_inst.get_by_username = AsyncMock(return_value=None)
-        repo_inst.get_by_email = AsyncMock(return_value=fake_user)
-
-        resp = await client.post(
-            "/api/v1/auth/register",
-            json={
-                "username": "newuser",
-                "email": "test@example.com",
-                "password": "securePass123",
-            },
-        )
-
-    assert resp.status_code == 400
-
-
 # ═══════════════════════════════════════════════════════════════════
 # 6.  Full flow: Register → Login → Me → Refresh → Logout → Stale
 # ═══════════════════════════════════════════════════════════════════
@@ -471,23 +442,22 @@ async def test_full_auth_lifecycle(client: AsyncClient):
 
         # Register
         user_inst.get_by_username = AsyncMock(return_value=None)
-        user_inst.get_by_email = AsyncMock(return_value=None)
         user_inst.create = AsyncMock(return_value=fake_user)
 
         resp = await client.post(
             "/api/v1/auth/register",
-            json={"username": "testuser", "email": "test@example.com", "password": "lifecycle-pw"},
+            json={"username": "testuser", "password": "lifecycle-pw"},
         )
         assert resp.status_code == 201
 
         # Login
-        user_inst.get_by_email = AsyncMock(return_value=fake_user)
+        user_inst.get_by_username = AsyncMock(return_value=fake_user)
         rt_inst = MockRTRepo.return_value
         rt_inst.create = AsyncMock(return_value=rt_row_1)
 
         resp = await client.post(
             "/api/v1/auth/login",
-            json={"email": "test@example.com", "password": "lifecycle-pw"},
+            json={"username": "testuser", "password": "lifecycle-pw"},
         )
         assert resp.status_code == 200
         access_token_1 = resp.json()["data"]["access_token"]

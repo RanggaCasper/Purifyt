@@ -1,13 +1,13 @@
 import os
-from typing import List, Optional
+from typing import List, Optional, Dict
 import pandas as pd
 from fastapi import HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.logging_config import get_logger
-from app.config.settings import get_settings
+from app.db.repositories.app_setting_repository import AppSettingRepository
 
 logger = get_logger(__name__)
-settings = get_settings()
 
 # Auto-detection: common CSV column names -> DB field names
 DEFAULT_COLUMN_MAP = {
@@ -25,13 +25,35 @@ DEFAULT_COLUMN_MAP = {
     "predicted_label": "predicted_label",
 }
 
-class KaggleService:
-    def __init__(self):
-        if settings.KAGGLE_USERNAME and settings.KAGGLE_KEY:
-            os.environ["KAGGLE_USERNAME"] = settings.KAGGLE_USERNAME
-            os.environ["KAGGLE_KEY"] = settings.KAGGLE_KEY
+ALLOWED_DB_FIELDS = {
+    "video_id",
+    "title",
+    "channel_name",
+    "date",
+    "author",
+    "comment",
+    "label",
+    "clean_comment",
+    "predicted_label",
+}
 
-    async def import_dataset(self, dataset_slug: str) -> dict:
+class KaggleService:
+    def __init__(self, db: AsyncSession):
+        self.db = db
+
+    async def _configure_credentials(self) -> None:
+        values = await AppSettingRepository(self.db).get_many(["KAGGLE_USERNAME", "KAGGLE_KEY"])
+        username = (values.get("KAGGLE_USERNAME") or "").strip()
+        key = (values.get("KAGGLE_KEY") or "").strip()
+        if username and key:
+            os.environ["KAGGLE_USERNAME"] = username
+            os.environ["KAGGLE_KEY"] = key
+
+    async def import_dataset(
+        self,
+        dataset_slug: str,
+        column_mapping: Optional[Dict[str, str]] = None,
+    ) -> dict:
         """
         Download a Kaggle dataset via kagglehub, auto-detect the CSV and
         column mapping, and return structured rows.
@@ -52,6 +74,8 @@ class KaggleService:
                 status_code=500,
                 detail="kagglehub is not installed. Run: pip install kagglehub",
             )
+
+        await self._configure_credentials()
 
         try:
             dataset_path = kagglehub.dataset_download(dataset_slug)
@@ -77,13 +101,14 @@ class KaggleService:
         df = pd.read_csv(csv_path, low_memory=False)
         columns_found = list(df.columns)
 
-        effective_map = self._build_mapping(columns_found)
+        effective_map = self._build_mapping(columns_found, column_mapping)
         rows = self._map_rows(df, effective_map, dataset_slug)
 
         return {
             "rows": rows,
             "source_url": f"https://www.kaggle.com/datasets/{dataset_slug}",
             "columns_found": columns_found,
+            "column_mapping": effective_map,
             "total_rows": len(rows),
         }
 
@@ -100,14 +125,34 @@ class KaggleService:
         return None
 
     @staticmethod
-    def _build_mapping(columns: List[str]) -> dict:
-        """Auto-detect {csv_col -> db_field} mapping using DEFAULT_COLUMN_MAP."""
+    def _build_mapping(
+        columns: List[str],
+        manual_mapping: Optional[Dict[str, str]] = None,
+    ) -> dict:
+        """Build {csv_col -> db_field} mapping from auto-detect plus manual overrides."""
         mapping = {}
         lowered = {c.lower().strip(): c for c in columns}
 
         for csv_alias, db_field in DEFAULT_COLUMN_MAP.items():
             if csv_alias in lowered:
                 mapping[lowered[csv_alias]] = db_field
+
+        for db_field, csv_col in (manual_mapping or {}).items():
+            db_field = db_field.strip()
+            csv_key = csv_col.strip().lower()
+            if not db_field or not csv_key:
+                continue
+            if db_field not in ALLOWED_DB_FIELDS:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Unsupported target field '{db_field}'. Allowed fields: {sorted(ALLOWED_DB_FIELDS)}",
+                )
+            if csv_key not in lowered:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Column '{csv_col}' was not found in Kaggle CSV. Columns found: {columns}",
+                )
+            mapping[lowered[csv_key]] = db_field
 
         return mapping
 

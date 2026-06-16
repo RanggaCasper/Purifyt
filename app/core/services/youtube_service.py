@@ -3,34 +3,43 @@ from datetime import datetime
 from typing import List, Optional
 import httpx
 from fastapi import HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.logging_config import get_logger
-from app.config.settings import get_settings
+from app.db.repositories.app_setting_repository import AppSettingRepository
 
 logger = get_logger(__name__)
-settings = get_settings()
 BASE_URL = "https://www.googleapis.com/youtube/v3"
 
 class YouTubeService:
-    def __init__(self):
-        if not settings.YOUTUBE_API_KEY:
+    def __init__(self, db: AsyncSession):
+        self.db = db
+        self.api_key: str | None = None
+
+    async def _get_api_key(self) -> str:
+        if self.api_key:
+            return self.api_key
+        api_key = await AppSettingRepository(self.db).get("YOUTUBE_API_KEY")
+        if not api_key:
             raise HTTPException(
                 status_code=500,
-                detail="YOUTUBE_API_KEY is not configured. Set it in .env",
+                detail="YouTube API key is not configured. Set it in Settings.",
             )
-        self.api_key = settings.YOUTUBE_API_KEY
+        self.api_key = api_key
+        return api_key
 
     async def search_videos(
         self, query: str, max_results: int = 5
     ) -> List[dict]:
         """Return a list of {video_id, title, channel_name, published_at}."""
         logger.info("[YOUTUBE] Searching videos — query='%s' max_results=%d", query, max_results)
+        api_key = await self._get_api_key()
         params = {
             "part": "snippet",
             "q": query,
             "type": "video",
             "maxResults": max_results,
-            "key": self.api_key,
+            "key": api_key,
         }
         async with httpx.AsyncClient() as client:
             resp = await client.get(f"{BASE_URL}/search", params=params, timeout=15)
@@ -62,6 +71,7 @@ class YouTubeService:
         If max_results is None, fetch ALL available comments.
         """
         logger.info("[YOUTUBE] Fetching comments — video_id=%s max_results=%s", video_id, max_results)
+        api_key = await self._get_api_key()
         # First get video details
         video_info = await self._get_video_info(video_id)
 
@@ -70,7 +80,7 @@ class YouTubeService:
             "videoId": video_id,
             "maxResults": 100,  # max per page allowed by YouTube API
             "textFormat": "plainText",
-            "key": self.api_key,
+            "key": api_key,
         }
 
         all_comments: List[dict] = []
@@ -133,10 +143,11 @@ class YouTubeService:
         return all_comments
 
     async def _get_video_info(self, video_id: str) -> dict:
+        api_key = await self._get_api_key()
         params = {
             "part": "snippet",
             "id": video_id,
-            "key": self.api_key,
+            "key": api_key,
         }
         async with httpx.AsyncClient() as client:
             resp = await client.get(f"{BASE_URL}/videos", params=params, timeout=15)
@@ -197,10 +208,11 @@ class YouTubeService:
         return await self._get_channel_by_handle(handle)
 
     async def _get_channel_by_id(self, channel_id: str) -> dict:
+        api_key = await self._get_api_key()
         params = {
             "part": "snippet",
             "id": channel_id,
-            "key": self.api_key,
+            "key": api_key,
         }
         async with httpx.AsyncClient() as client:
             resp = await client.get(f"{BASE_URL}/channels", params=params, timeout=15)
@@ -219,10 +231,11 @@ class YouTubeService:
         }
 
     async def _get_channel_by_handle(self, handle: str) -> dict:
+        api_key = await self._get_api_key()
         params = {
             "part": "snippet",
             "forHandle": handle,
-            "key": self.api_key,
+            "key": api_key,
         }
         async with httpx.AsyncClient() as client:
             resp = await client.get(f"{BASE_URL}/channels", params=params, timeout=15)
@@ -266,6 +279,8 @@ class YouTubeService:
         if not video_ids:
             return []
 
+        api_key = await self._get_api_key()
+
         # Batch in groups of 50 (API limit)
         regular_ids: List[str] = []
         for i in range(0, len(video_ids), 50):
@@ -273,7 +288,7 @@ class YouTubeService:
             params = {
                 "part": "contentDetails,snippet",
                 "id": ",".join(batch),
-                "key": self.api_key,
+                "key": api_key,
             }
             resp = await client.get(f"{BASE_URL}/videos", params=params, timeout=30)
             if resp.status_code != 200:
@@ -308,13 +323,14 @@ class YouTubeService:
         If max_results is None, fetch all available videos.
         Returns: [{video_id, title, published_at}, ...]
         """
+        api_key = await self._get_api_key()
         search_params = {
             "part": "snippet",
             "channelId": channel_id,
             "type": "video",
             "order": "date",
             "maxResults": 50,  # max per page
-            "key": self.api_key,
+            "key": api_key,
         }
 
         all_videos: List[dict] = []
