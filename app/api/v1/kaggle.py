@@ -1,15 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config.logging_config import get_logger
+from app.core.logging import get_logger
 from app.db.connection import get_db
 from app.db.models import DataSource
-from app.db.repositories.dataset_repository import DatasetRepository
-from app.db.repositories.comment_repository import CommentRepository
-from app.core.schemas import KaggleImportRequest, DatasetResponse
-from app.core.services.kaggle_service import KaggleService
-from app.core.services.auth_service import get_current_user
-from app.utils.response_formatter import APIResponse, success_response
+from app.modules.datasets.repository import DatasetRepository
+from app.modules.datasets.comment_repository import CommentRepository
+from app.modules.datasets.schemas import DatasetResponse
+from app.modules.kaggle.schemas import KaggleImportRequest
+from app.modules.kaggle.service import KaggleService
+from app.modules.auth.service import get_current_user
+from app.shared.utils.response_formatter import APIResponse, success_response
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/kaggle", tags=["Kaggle"])

@@ -10,7 +10,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from app.main import app
-from app.core.services.auth_service import (
+from app.modules.auth.service import (
     REFRESH_COOKIE_NAME,
     REFRESH_COOKIE_PATH,
     create_access_token,
@@ -166,7 +166,7 @@ async def test_me_with_valid_access_token(client: AsyncClient):
     fake_user = _make_user()
     token, _ = create_access_token(user_id=fake_user.id, username=fake_user.username)
 
-    with patch("app.core.services.auth_service.UserRepository") as MockRepo:
+    with patch("app.modules.auth.service.UserRepository") as MockRepo:
         MockRepo.return_value.get_by_id = AsyncMock(return_value=fake_user)
 
         resp = await client.get(
@@ -434,7 +434,7 @@ async def test_full_auth_lifecycle(client: AsyncClient):
             side_effect=lambda: next(gen_rt_calls),
         ),
         patch(
-            "app.core.services.auth_service.UserRepository"
+            "app.modules.auth.service.UserRepository"
         ) as MockAuthUserRepo,
     ):
         user_inst = MockUserRepo.return_value
@@ -517,16 +517,16 @@ async def test_full_auth_lifecycle(client: AsyncClient):
 
 class TestRefreshTokenHash:
     def test_hash_is_sha256_hex(self):
-        from app.db.repositories.refresh_token_repository import hash_token
+        from app.modules.auth.refresh_token_repository import hash_token
         raw = "some-opaque-token"
         h = hash_token(raw)
         assert len(h) == 64  # SHA-256 hex = 64 chars
         assert h == hashlib.sha256(raw.encode()).hexdigest()
 
     def test_different_tokens_produce_different_hashes(self):
-        from app.db.repositories.refresh_token_repository import hash_token
+        from app.modules.auth.refresh_token_repository import hash_token
         assert hash_token("token-a") != hash_token("token-b")
 
     def test_same_token_produces_same_hash(self):
-        from app.db.repositories.refresh_token_repository import hash_token
+        from app.modules.auth.refresh_token_repository import hash_token
         assert hash_token("abc") == hash_token("abc")

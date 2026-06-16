@@ -1,4 +1,4 @@
-.PHONY: venv install run dev test clean freeze build-python build-desktop docker-build docker-run
+.PHONY: venv activate install run dev test clean freeze build-python build-desktop docker-build docker-run
 
 PYTHON = python
 VENV = venv
@@ -7,10 +7,15 @@ UVICORN = $(VENV)/Scripts/uvicorn
 PYTEST = $(VENV)/Scripts/pytest
 PYINSTALLER = $(VENV)/Scripts/pyinstaller
 APP = app.main:app
+ACTIVATE_VENV = $(CURDIR)/$(VENV)/Scripts/Activate.ps1
 
 # Create virtual environment
 venv:
 	@if not exist $(VENV) $(PYTHON) -m venv $(VENV)
+
+# Open a PowerShell session with the virtual environment activated
+activate: venv
+	powershell -NoExit -ExecutionPolicy RemoteSigned -Command "& '$(ACTIVATE_VENV)'"
 
 # Install dependencies
 install: venv

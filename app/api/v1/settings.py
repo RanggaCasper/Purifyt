@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.schemas import AppCredentialsRequest, AppCredentialsResponse
+from app.modules.settings.schemas import AppCredentialsRequest, AppCredentialsResponse
 from app.db.connection import get_db
-from app.db.repositories.app_setting_repository import AppSettingRepository
-from app.utils.response_formatter import APIResponse, success_response
+from app.modules.settings.repository import AppSettingRepository
+from app.shared.utils.response_formatter import APIResponse, success_response
 
 
 router = APIRouter(prefix="/settings", tags=["Settings"])

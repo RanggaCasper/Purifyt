@@ -5,13 +5,13 @@ from pydantic import BaseModel, Field
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config.logging_config import get_logger
+from app.core.logging import get_logger
 from app.db.connection import get_db
 from app.db.models import DataSource
-from app.db.repositories.dataset_repository import DatasetRepository
-from app.db.repositories.comment_repository import CommentRepository
-from app.core.schemas import DatasetResponse
-from app.core.services.auth_service import get_current_user
+from app.modules.datasets.repository import DatasetRepository
+from app.modules.datasets.comment_repository import CommentRepository
+from app.modules.datasets.schemas import DatasetResponse
+from app.modules.auth.service import get_current_user
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/explorer", tags=["Explorer"])
@@ -51,7 +51,7 @@ async def run_explorer(
       - `complete`: final result with dataset & stats
       - `error`: non-fatal error
     """
-    from app.core.services.explorer_service import explore_video_stream
+    from app.modules.explorer.service import explore_video_stream
 
     logger.info("[EXPLORER] Starting video explore video_id=%s user_id=%d", payload.video_id, current_user.id)
 

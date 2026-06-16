@@ -2,6 +2,19 @@
 
 Purifyt stores YouTube comments as datasets. Each dataset can contain comments imported from YouTube, Kaggle, manual flows, or explorer workflows.
 
+## Dataset Schema
+
+| Column | Description |
+|--------|-------------|
+| `id` | Dataset identifier. |
+| `name` | Dataset display name. |
+| `description` | Optional dataset description. |
+| `source` | Data source: `youtube_api`, `kaggle`, or `manual`. |
+| `source_url` | URL or source reference for imported datasets. |
+| `owner_id` | User that created/imported the dataset, when available. |
+| `created_at` | Creation timestamp. |
+| `updated_at` | Update timestamp. |
+
 ## Comment Schema
 
 | Column | Description |
@@ -17,6 +30,7 @@ Purifyt stores YouTube comments as datasets. Each dataset can contain comments i
 | `predicted_label` | Model-predicted label. |
 | `source` | Data origin such as `youtube_api`, `kaggle`, or manual import. |
 | `source_detail` | Specific source information such as video URL, Kaggle slug, or filename. |
+| `created_at` | Comment creation timestamp in the database. |
 
 ## Import Sources
 
@@ -24,8 +38,8 @@ Purifyt stores YouTube comments as datasets. Each dataset can contain comments i
 |--------|-------------|
 | YouTube API | Searches videos and imports comments directly from YouTube Data API flows. |
 | Kaggle | Downloads or imports CSV datasets from Kaggle. |
-| Explorer | Scans a video or channel and streams progress while saving/classifying comments. |
-| Manual | Data inserted through user-driven workflows or API calls. |
+| Explorer | Scans a video or channel and streams progress while classifying comments. Results are saved only when a dataset name is provided and detected comments are found. |
+| Manual | Dataset records created through user-driven workflows or API calls. |
 
 ## Cleaning Flow
 
@@ -43,8 +57,12 @@ Raw comment
   -> stored comment result
 ```
 
-Predictions can be run for a single comment, a batch of comments, or an existing dataset.
+Predictions can be run for a single comment, a batch of comments, an existing dataset, or a YouTube scan without saving.
+
+## Label Review
+
+`predicted_label` stores the model output. `label` stores a manual correction when the user overrides the model. The UI and API support updating one comment, resetting one manual label, or applying bulk manual labels inside a dataset.
 
 ## Dataset Management
 
-Datasets can be listed, opened with comments, searched, and deleted through the authenticated API and web UI.
+Datasets can be created manually, listed, opened with comments, searched, and deleted through the authenticated API and web UI.

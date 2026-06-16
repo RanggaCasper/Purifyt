@@ -5,10 +5,10 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config.logging_config import get_logger
+from app.core.logging import get_logger
 from app.db.connection import get_db
-from app.db.repositories.cookie_account_repository import CookieAccountRepository
-from app.utils.response_formatter import APIResponse, success_response, error_response
+from app.modules.automation.repository import CookieAccountRepository
+from app.shared.utils.response_formatter import APIResponse, success_response, error_response
 
 logger = get_logger(__name__)
 
@@ -76,7 +76,7 @@ class FetchCommentsRequest(BaseModel):
 # SSE Stream Generators 
 def _run_scan_stream(payload: ScanRequest, dry_run: bool):
     """Generator: scan video → yield SSE events."""
-    from app.core.services.auto_delete_service import AutoDeleteService, _sse_event
+    from app.modules.automation.auto_delete_service import AutoDeleteService, _sse_event
 
     service = AutoDeleteService(
         email=payload.email,
@@ -109,7 +109,7 @@ def _run_scan_stream(payload: ScanRequest, dry_run: bool):
 
 def _run_delete_stream(payload: DeleteRequest):
     """Generator: delete specific comments → yield SSE events."""
-    from app.core.services.auto_delete_service import AutoDeleteService, _sse_event
+    from app.modules.automation.auto_delete_service import AutoDeleteService, _sse_event
 
     service = AutoDeleteService(email=payload.email, headless=payload.headless)
 
@@ -148,7 +148,7 @@ def _run_delete_stream(payload: DeleteRequest):
 
 def _run_fetch_comments_stream(payload: FetchCommentsRequest):
     """Generator: fetch video comments → yield SSE events."""
-    from app.core.services.auto_delete_service import AutoDeleteService, _sse_event
+    from app.modules.automation.auto_delete_service import AutoDeleteService, _sse_event
 
     service = AutoDeleteService(email=payload.email, headless=payload.headless)
 
@@ -195,7 +195,7 @@ async def login_google(payload: LoginRequest):
       - `done`   — {logged_in, email, channel_name, cookies_saved, cookie_count, cookie_path}
       - `error`  — error message
     """
-    from app.core.services.auto_delete_service import AutoDeleteService
+    from app.modules.automation.auto_delete_service import AutoDeleteService
 
     logger.info("[AUTO_DELETE] Login request email=%s headless=%s", payload.email, payload.headless)
     return _sse_response(
@@ -276,7 +276,7 @@ async def list_cookies(db: AsyncSession = Depends(get_db)):
     repo = CookieAccountRepository(db)
     accounts = await repo.get_all()
 
-    from app.core.services.cookie_manager import CookieManager
+    from app.modules.automation.cookie_manager import CookieManager
 
     data = []
     for acc in accounts:
@@ -313,7 +313,7 @@ async def get_cookie_detail(email: str, db: AsyncSession = Depends(get_db)):
     if not account:
         return error_response(message=f"Cookie untuk {email} tidak ditemukan")
 
-    from app.core.services.cookie_manager import CookieManager
+    from app.modules.automation.cookie_manager import CookieManager
 
     mgr = CookieManager(cookie_path=account.cookie_path)
     file_info = mgr.get_cookie_info()
@@ -348,7 +348,7 @@ async def delete_cookie_account(email: str, db: AsyncSession = Depends(get_db)):
 
     if account:
         # Delete the local cookie file
-        from app.core.services.cookie_manager import CookieManager
+        from app.modules.automation.cookie_manager import CookieManager
         mgr = CookieManager(cookie_path=account.cookie_path)
         file_deleted = mgr.delete()
 

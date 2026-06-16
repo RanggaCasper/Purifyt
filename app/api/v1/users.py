@@ -1,12 +1,12 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config.logging_config import get_logger
+from app.core.logging import get_logger
 from app.db.connection import get_db
-from app.db.repositories.user_repository import UserRepository
-from app.core.schemas import UserResponse
-from app.core.services.auth_service import get_current_user
-from app.utils.response_formatter import APIResponse, paginated_response, success_response
+from app.modules.auth.repository import UserRepository
+from app.modules.auth.schemas import UserResponse
+from app.modules.auth.service import get_current_user
+from app.shared.utils.response_formatter import APIResponse, paginated_response, success_response
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/users", tags=["Users"])
