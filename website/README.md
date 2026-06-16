@@ -1,31 +1,8 @@
-# Nuxt Starter Template
+# Purifyt Website
 
-[![Nuxt UI](https://img.shields.io/badge/Made%20with-Nuxt%20UI-00DC82?logo=nuxt&labelColor=020420)](https://ui.nuxt.com)
+Nuxt 4 frontend for Purifyt. It provides the landing page, authentication screens, dashboard, dataset management, prediction tools, explorer workflows, settings, and auto-delete assistant UI.
 
-Use this template to get started with [Nuxt UI](https://ui.nuxt.com) quickly.
-
-- [Live demo](https://starter-template.nuxt.dev/)
-- [Documentation](https://ui.nuxt.com/docs/getting-started/installation/nuxt)
-
-<a href="https://starter-template.nuxt.dev/" target="_blank">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://ui.nuxt.com/assets/templates/nuxt/starter-dark.png">
-    <source media="(prefers-color-scheme: light)" srcset="https://ui.nuxt.com/assets/templates/nuxt/starter-light.png">
-    <img alt="Nuxt Starter Template" src="https://ui.nuxt.com/assets/templates/nuxt/starter-light.png" width="830" height="466">
-  </picture>
-</a>
-
-> The starter template for Vue is on https://github.com/nuxt-ui-templates/starter-vue.
-
-## Quick Start
-
-```bash [Terminal]
-npm create nuxt@latest -- -t github:nuxt-ui-templates/starter
-```
-
-## Deploy your own
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-name=starter&repository-url=https%3A%2F%2Fgithub.com%2Fnuxt-ui-templates%2Fstarter&demo-image=https%3A%2F%2Fui.nuxt.com%2Fassets%2Ftemplates%2Fnuxt%2Fstarter-dark.png&demo-url=https%3A%2F%2Fstarter-template.nuxt.dev%2F&demo-title=Nuxt%20Starter%20Template&demo-description=A%20minimal%20template%20to%20get%20started%20with%20Nuxt%20UI.)
+The app uses Nuxt UI, Pinia, Tailwind CSS, and i18n. It can run as a web app or inside the Tauri desktop shell in `src-tauri/`.
 
 ## Setup
 
@@ -35,12 +12,24 @@ Make sure to install the dependencies:
 pnpm install
 ```
 
+The default API base is `http://127.0.0.1:51441`. Override it with `NUXT_PUBLIC_API_BASE` when needed:
+
+```bash
+NUXT_PUBLIC_API_BASE=http://127.0.0.1:8000 pnpm dev
+```
+
 ## Development Server
 
 Start the development server on `http://localhost:3000`:
 
 ```bash
 pnpm dev
+```
+
+Run the FastAPI backend separately from the repository root:
+
+```bash
+uvicorn app.main:app --reload --port 51441
 ```
 
 ## Production
@@ -57,4 +46,40 @@ Locally preview production build:
 pnpm preview
 ```
 
-Check out the [deployment documentation](https://nuxt.com/docs/getting-started/deployment) for more information.
+## Checks
+
+```bash
+pnpm lint
+pnpm typecheck
+```
+
+## Desktop
+
+Run the Tauri desktop app in development:
+
+```bash
+pnpm desktop
+```
+
+Build the desktop app:
+
+```bash
+pnpm build:desktop
+```
+
+## Structure
+
+```text
+website/
+├── app/
+│   ├── components/      # Shared and feature components
+│   ├── composables/     # API/auth helpers
+│   ├── layouts/         # Landing, auth, and app layouts
+│   ├── middleware/      # Route guards
+│   ├── pages/           # Nuxt routes
+│   ├── stores/          # Pinia stores
+│   └── types/           # TypeScript types
+├── i18n/locales/        # Indonesian and English messages
+├── public/              # Static assets
+└── src-tauri/           # Tauri desktop shell
+```

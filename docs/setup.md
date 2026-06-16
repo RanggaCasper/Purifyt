@@ -11,6 +11,8 @@ This guide covers local setup for the FastAPI backend, Nuxt website, and Tauri d
 | Node.js | Frontend runtime. |
 | pnpm 10.29.3+ | Frontend package manager. |
 | Rust | Required by Tauri desktop builds. |
+| YouTube API key | Required for YouTube search/import/explorer features. |
+| Kaggle credentials | Required for Kaggle import features. |
 
 ## Backend Setup
 
@@ -26,7 +28,7 @@ Create an environment file:
 cp .env.example .env
 ```
 
-Configure `.env` with database, JWT, cookie, and CORS settings.
+Configure `.env` with database, integration, JWT, cookie, and CORS settings.
 
 | Variable | Description |
 |----------|-------------|
@@ -56,10 +58,12 @@ CREATE DATABASE purifyt CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 Run the backend:
 
 ```bash
-uvicorn app.main:app --reload
+uvicorn app.main:app --reload --port 51441
 ```
 
-The API documentation is available at `http://localhost:8000/docs`.
+The API documentation is available at `http://localhost:51441/docs`.
+
+If you run the backend on a different port, set `NUXT_PUBLIC_API_BASE` before starting the website.
 
 ## Website Setup
 
@@ -77,6 +81,8 @@ pnpm dev
 ```
 
 The Nuxt app runs separately from the FastAPI backend. Make sure CORS allows the Nuxt origin configured in `.env`.
+
+By default, Nuxt runs on `http://localhost:3000` and calls `http://127.0.0.1:51441` as configured in `website/nuxt.config.ts`.
 
 ## Desktop Setup
 
@@ -110,3 +116,7 @@ Run frontend checks from `website/`:
 pnpm lint
 pnpm typecheck
 ```
+
+## Standalone Notes
+
+The backend uses MySQL in normal source runs. When compiled with a frozen Python runtime, the settings switch to a local SQLite database named `purifyt.db` beside the executable.

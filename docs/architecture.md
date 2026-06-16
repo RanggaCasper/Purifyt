@@ -13,43 +13,42 @@ app/
 ├── api/
 │   ├── router.py            # Root API router with /api/v1 prefix
 │   └── v1/                  # Versioned endpoint modules
-├── config/                  # Settings and logging configuration
-├── core/
-│   ├── schemas.py           # Pydantic models
-│   └── services/            # Business logic and integrations
+├── core/                    # Settings and logging configuration
 ├── db/
 │   ├── connection.py        # Async SQLAlchemy engine/session
-│   ├── models.py            # ORM models
-│   └── repositories/        # Database access layer
-└── utils/                   # Shared utility functions
+│   └── models/              # ORM models grouped by entity
+├── modules/                 # Feature modules with schemas, services, repositories
+└── shared/                  # Shared utilities and static data
 ```
 
 ## API Layer
 
-`app/api/router.py` mounts every versioned API module under `/api/v1`. Most route groups use the current-user dependency, while auth endpoints expose registration, login, refresh, logout, and profile retrieval.
+`app/api/router.py` mounts every versioned API module under `/api/v1`. Most route groups use the current-user dependency at router registration, while auth endpoints expose registration, login, refresh, logout, and profile retrieval.
 
 Endpoint modules are intentionally thin. They validate requests, call services or repositories, and return Pydantic responses.
 
 ## Services
 
-The service layer coordinates integrations and longer workflows.
+Feature modules in `app/modules/` coordinate integrations, repositories, schemas, and longer workflows.
 
-| Service | Responsibility |
-|---------|----------------|
-| `auth_service.py` | Password hashing, JWT creation, token validation, and blacklist checks. |
-| `model_service.py` | Model loading and comment classification. |
-| `youtube_service.py` | YouTube search and comment import. |
-| `kaggle_service.py` | Kaggle dataset import. |
-| `explorer_service.py` | Video exploration workflow. |
-| `channel_explorer_service.py` | Channel-level exploration workflow. |
-| `auto_delete_service.py` | Automated deletion workflow. |
-| `cookie_manager.py` | Cookie/profile handling for browser automation flows. |
+| Module | Responsibility |
+|--------|----------------|
+| `auth` | User repository, password hashing, JWT access tokens, refresh-token rotation, and auth dependencies. |
+| `datasets` | Dataset and comment repositories plus dataset/comment schemas. |
+| `labeling` | BERT model loading, text cleaning, single/batch prediction, dataset labeling, and manual label correction. |
+| `youtube` | YouTube video search, comment fetch/import, and scan-without-save flows. |
+| `kaggle` | Kaggle dataset import with optional column mapping. |
+| `explorer` | Video and channel exploration workflows with SSE progress. |
+| `automation` | YouTube Studio browser automation, cookie management, scan preview, and comment deletion. |
+| `settings` | Database-backed YouTube/Kaggle credential settings. |
 
 ## Database
 
-The database layer uses async SQLAlchemy. ORM models are defined in `app/db/models.py`, while repositories isolate database reads and writes.
+The database layer uses async SQLAlchemy. ORM models are defined in `app/db/models/`, while repositories in feature modules isolate database reads and writes.
 
-Main entities include users, datasets, comments, token blacklist entries, and application settings.
+Main entities include users, datasets, comments, refresh tokens, legacy token blacklist entries, cookie accounts, and application settings.
+
+Source runs use MySQL. Compiled standalone runs use SQLite via `Settings.DATABASE_URL`.
 
 ## Frontend
 
@@ -58,7 +57,10 @@ The frontend lives in `website/` and uses Nuxt 4.
 ```text
 website/
 ├── app/
+│   ├── components/          # Shared and feature UI components
 │   ├── composables/         # API and app composables
+│   ├── layouts/             # Landing, auth, and authenticated layouts
+│   ├── middleware/          # Auth and guest route guards
 │   ├── pages/               # Nuxt pages
 │   ├── stores/              # Pinia stores
 │   └── types/               # TypeScript types
@@ -69,7 +71,7 @@ website/
 └── nuxt.config.ts
 ```
 
-The frontend talks to the FastAPI backend through API composables and maintains user/session state with Pinia.
+The frontend talks to the FastAPI backend through API composables, uses `NUXT_PUBLIC_API_BASE`/runtime config for the API URL, and maintains user/session state with Pinia.
 
 ## Desktop App
 
@@ -86,3 +88,13 @@ Nuxt/Tauri UI
 ```
 
 For prediction and explorer flows, the service layer also calls model inference and YouTube/Kaggle integrations before persisting or returning results.
+
+Authentication flow:
+
+```text
+Login
+  -> access_token in JSON response
+  -> refresh_token stored as HttpOnly cookie
+  -> refresh rotates the refresh token row and cookie
+  -> logout revokes the active refresh token and clears the cookie
+```
