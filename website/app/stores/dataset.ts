@@ -38,6 +38,7 @@ export interface KaggleImportPayload {
 export interface ManualDatasetPayload {
   name: string
   description?: string
+  comment?: string
 }
 
 interface DatasetState {

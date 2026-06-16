@@ -18,7 +18,8 @@ const showKaggleImport = ref(false)
 const showManualCreate = ref(false)
 const manualForm = reactive({
   name: '',
-  description: ''
+  description: '',
+  comment: ''
 })
 const kaggleForm = reactive({
   datasetSlug: '',
@@ -132,11 +133,13 @@ async function handleManualCreate() {
   try {
     const dataset = await datasetStore.createManualDataset({
       name,
-      description: manualForm.description.trim() || undefined
+      description: manualForm.description.trim() || undefined,
+      comment: manualForm.comment.trim() || undefined
     })
     toast.add({ title: t('datasets.manualCreateSuccess', { name: dataset.name }), color: 'success' })
     manualForm.name = ''
     manualForm.description = ''
+    manualForm.comment = ''
     showManualCreate.value = false
     await loadDatasets(1)
   } catch (error: unknown) {
@@ -232,6 +235,15 @@ const sourceColor = (source: string) => {
             />
           </UFormField>
         </div>
+
+        <UFormField :label="$t('datasets.manualComment')" :hint="$t('common.optional')">
+          <UTextarea
+            v-model="manualForm.comment"
+            class="w-full"
+            :placeholder="$t('datasets.manualCommentPlaceholder')"
+            :rows="4"
+          />
+        </UFormField>
 
         <div class="flex justify-end gap-2">
           <UButton

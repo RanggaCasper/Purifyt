@@ -391,6 +391,8 @@
     "manualDatasetNamePlaceholder": "e.g., manual-comment-dataset",
     "manualDatasetDescription": "Description",
     "manualDatasetDescriptionPlaceholder": "Short note about this dataset",
+    "manualComment": "Manual comment",
+    "manualCommentPlaceholder": "Write the first comment for this dataset",
     "manualCreateButton": "Save Dataset",
     "manualNameRequired": "Enter a dataset name first",
     "manualCreateSuccess": "Dataset saved: {name}",

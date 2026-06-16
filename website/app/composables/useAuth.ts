@@ -9,6 +9,24 @@ interface AuthState {
 }
 
 const AUTH_STATE_KEY = '__auth__'
+const DESKTOP_REFRESH_TOKEN_KEY = 'purifyt_refresh_token'
+
+const isDesktopRuntime = () => import.meta.client && window.location.protocol === 'tauri:'
+
+const getDesktopRefreshToken = () => {
+  if (!isDesktopRuntime()) return null
+  return localStorage.getItem(DESKTOP_REFRESH_TOKEN_KEY)
+}
+
+const setDesktopRefreshToken = (token?: string) => {
+  if (!isDesktopRuntime() || !token) return
+  localStorage.setItem(DESKTOP_REFRESH_TOKEN_KEY, token)
+}
+
+const clearDesktopRefreshToken = () => {
+  if (!isDesktopRuntime()) return
+  localStorage.removeItem(DESKTOP_REFRESH_TOKEN_KEY)
+}
 
 const getAuthState = (): AuthState => {
   const nuxtApp = useNuxtApp()
@@ -33,11 +51,17 @@ export const useAuth = () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const authFetch = async <T = unknown>(url: string, opts: Record<string, any> = {}) => {
     const API = await resolveApiBase()
+    const desktopRefreshToken = url.includes('/auth/refresh') || url.includes('/auth/logout')
+      ? getDesktopRefreshToken()
+      : null
     return $fetch<ApiResponse<T>>(`${API}${url}`, {
       ...opts,
       credentials: 'include',
       headers: {
         ...(opts.headers || {}),
+        ...(desktopRefreshToken
+          ? { 'x-refresh-token': desktopRefreshToken }
+          : {}),
         ...(accessToken.value
           ? { Authorization: `Bearer ${accessToken.value}` }
           : {})
@@ -55,6 +79,7 @@ export const useAuth = () => {
 
   const setTokens = (data: TokenResponse) => {
     accessToken.value = data.access_token
+    setDesktopRefreshToken(data.refresh_token)
     if (data.expires_in) {
       scheduleRefresh(data.expires_in)
     }
@@ -124,6 +149,7 @@ export const useAuth = () => {
     } catch {
       accessToken.value = null
       user.value = null
+      clearDesktopRefreshToken()
       return false
     }
   }
@@ -136,6 +162,7 @@ export const useAuth = () => {
     } finally {
       accessToken.value = null
       user.value = null
+      clearDesktopRefreshToken()
       if (state.refreshTimer) {
         clearTimeout(state.refreshTimer)
         state.refreshTimer = null

@@ -26,6 +26,18 @@ from app.modules.auth.service import (
 logger = get_logger(__name__)
 settings = get_settings()
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+DESKTOP_REFRESH_HEADER = "x-refresh-token"
+
+
+def _is_desktop_request(request: Request | None) -> bool:
+    if not request:
+        return False
+    origin = request.headers.get("origin", "")
+    return origin.startswith(("tauri://", "http://tauri.localhost", "https://tauri.localhost"))
+
+
+def _get_refresh_token(request: Request) -> str | None:
+    return request.cookies.get(REFRESH_COOKIE_NAME) or request.headers.get(DESKTOP_REFRESH_HEADER)
 
 
 # helpers 
@@ -63,6 +75,7 @@ async def _issue_tokens(
         "access_token": access_token,
         "token_type": "bearer",
         "expires_in": expires_in,
+        **({"refresh_token": raw_refresh} if _is_desktop_request(request) else {}),
     }
 
 
@@ -159,7 +172,7 @@ async def refresh(
     Exchange a valid refresh_token cookie for a new access_token + rotated
     refresh_token.  The old refresh token is revoked (rotation).
     """
-    raw_token: str | None = request.cookies.get(REFRESH_COOKIE_NAME)
+    raw_token = _get_refresh_token(request)
 
     if not raw_token:
         delete_refresh_cookie(response)
@@ -215,7 +228,7 @@ async def logout(
     Revoke the refresh token stored in the cookie and clear the cookie.
     Does NOT require an access_token – a user can always log out.
     """
-    raw_token: str | None = request.cookies.get(REFRESH_COOKIE_NAME)
+    raw_token = _get_refresh_token(request)
 
     if raw_token:
         rt_repo = RefreshTokenRepository(db)

@@ -69,6 +69,15 @@ async def create_dataset(
         source=DataSource.MANUAL,
         owner_id=current_user.id,
     )
+    comment = payload.comment.strip() if payload.comment else None
+    if comment:
+        await CommentRepository(db).create(
+            dataset_id=dataset.id,
+            video_id="manual",
+            comment=comment,
+            source=DataSource.MANUAL,
+            source_detail="Manual input",
+        )
     await db.commit()
     return success_response(data=DatasetResponse(
         id=dataset.id,
@@ -78,7 +87,7 @@ async def create_dataset(
         source_url=dataset.source_url,
         owner_id=dataset.owner_id,
         created_at=dataset.created_at,
-        comment_count=0,
+        comment_count=1 if comment else 0,
     ))
 
 

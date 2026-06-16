@@ -34,6 +34,7 @@ class CommentResponse(CommentBase):
 class DatasetCreate(BaseModel):
     name: str = Field(..., max_length=255)
     description: Optional[str] = None
+    comment: Optional[str] = None
 
 
 class DatasetResponse(BaseModel):

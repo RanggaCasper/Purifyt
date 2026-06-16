@@ -391,6 +391,8 @@
     "manualDatasetNamePlaceholder": "contoh: dataset-komentar-manual",
     "manualDatasetDescription": "Deskripsi",
     "manualDatasetDescriptionPlaceholder": "Catatan singkat tentang dataset ini",
+    "manualComment": "Komentar manual",
+    "manualCommentPlaceholder": "Tulis komentar pertama untuk dataset ini",
     "manualCreateButton": "Simpan Dataset",
     "manualNameRequired": "Isi nama dataset dulu",
     "manualCreateSuccess": "Dataset tersimpan: {name}",
