@@ -2,12 +2,12 @@
 
 Purifyt is a YouTube comment moderation and dataset platform for collecting comments, cleaning text, managing datasets, classifying online gambling comments, and assisting YouTube Studio cleanup workflows. It includes a FastAPI backend, a Nuxt web interface, and a Tauri desktop shell.
 
-![Purifyt landing page](docs/assets/landing.png)
+![Purifyt predict page](docs/assets/predict.png)
 
 ## Table of Contents
 
 - [Overview](#overview)
-- [Prediction Workflow](#prediction-workflow)
+- [Auto Delete Workflow](#auto-delete-workflow)
 - [Features](#features)
 - [Tech Stack](#tech-stack)
 - [Quick Start](#quick-start)
@@ -21,11 +21,36 @@ Purifyt helps build and maintain YouTube comment datasets for online gambling co
 
 The backend stores data in MySQL during local development using async SQLAlchemy. Compiled standalone builds switch to SQLite. Authentication uses short-lived JWT access tokens and rotated HttpOnly refresh-token cookies. Long-running explorer and auto-delete flows stream progress through server-sent events.
 
-## Prediction Workflow
-The prediction workflow takes raw comments, cleans the text, runs inference through a BERT model, and stores the predicted label alongside the original comment.
+## Auto Delete Workflow
+The auto-delete workflow connects Purifyt to YouTube Studio through a saved Google cookie session, scans video comments, predicts which comments are online gambling spam, lets the user preview the result, and deletes selected spam comments from YouTube Studio.
 
+```mermaid
+flowchart TD
+    A[Login with Google account] --> B[Save YouTube Studio cookie session]
+    B --> C[Open Auto Delete page]
+    C --> D[Enter YouTube video URL or video ID]
+    D --> E[Select saved Google account]
+    E --> F[Set detection threshold]
+    F --> G{Preview or Delete?}
+    G -->|Preview| H[Fetch comments from YouTube Studio]
+    G -->|Delete| H
+    H --> I[Clean comment text]
+    I --> J[Run BERT gambling-spam prediction]
+    J --> K[Show detected spam comments]
+    K --> L{Delete mode?}
+    L -->|No| M[Review results safely]
+    L -->|Yes| N[Delete detected comments in YouTube Studio]
+    N --> O[Show deletion summary and logs]
+```
 
-![Purifyt prediction page](docs/assets/predict.png)
+Recommended usage:
+
+1. Add or refresh a Google account cookie session from the Auto Delete page.
+2. Run Preview first to inspect detected comments without deleting anything.
+3. Adjust the threshold if there are too many false positives or missed spam comments.
+4. Run Delete only after the preview result looks correct.
+5. Review the final logs to confirm how many comments were scanned, detected, and deleted.
+
 
 ## Features
 

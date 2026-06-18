@@ -36,6 +36,7 @@ jobs:
 
           $previousPackageVersion = ""
           $previousTauriVersion = ""
+          $tag = "v$packageVersion"
 
           if (git rev-parse HEAD~1 2>$null) {
             $previousJson = git show HEAD~1:website/package.json 2>$null
@@ -49,13 +50,16 @@ jobs:
             }
           }
 
+          git fetch --tags --force
+          $tagExists = git tag --list $tag
+
           $changed = "false"
-          if ("${{ github.event_name }}" -eq "workflow_dispatch" -or $packageVersion -ne $previousPackageVersion -or $tauriVersion -ne $previousTauriVersion) {
+          if ("${{ github.event_name }}" -eq "workflow_dispatch" -or -not $tagExists -or $packageVersion -ne $previousPackageVersion -or $tauriVersion -ne $previousTauriVersion) {
             $changed = "true"
           }
 
           "version=$packageVersion" >> $env:GITHUB_OUTPUT
-          "tag=v$packageVersion" >> $env:GITHUB_OUTPUT
+          "tag=$tag" >> $env:GITHUB_OUTPUT
           "changed=$changed" >> $env:GITHUB_OUTPUT
           "previous=$previousPackageVersion" >> $env:GITHUB_OUTPUT
 
@@ -63,7 +67,7 @@ jobs:
         if: steps.version.outputs.changed != 'true'
         shell: pwsh
         run: |
-          Write-Host "website/package.json version is unchanged (${{ steps.version.outputs.version }}). Release skipped."
+          Write-Host "Release ${{ steps.version.outputs.tag }} already exists and version files are unchanged. Release skipped."
 
       - name: Setup Python
         if: steps.version.outputs.changed == 'true'
