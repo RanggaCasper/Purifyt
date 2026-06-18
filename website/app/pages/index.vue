@@ -1,18 +1,12 @@
 <script setup lang="ts">
-definePageMeta({
-  layout: 'landing',
-  title: 'Purifyt – Hapus Komentar Judi di YouTube'
-})
+definePageMeta({ layout: false })
 </script>
 
 <template>
-  <div>
-    <LandingHeroSection />
-    <LandingStatsSection />
-    <LandingFeaturesSection />
-    <LandingStepsSection />
-    <LandingDemoSection />
-    <LandingExtensionSection />
-    <LandingCtaSection />
+  <div class="min-h-screen bg-default flex items-center justify-center">
+    <UIcon
+      name="i-lucide-loader-circle"
+      class="animate-spin text-2xl text-muted"
+    />
   </div>
 </template>

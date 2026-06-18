@@ -28,8 +28,12 @@ export default defineNuxtRouteMiddleware(async (to) => {
     })
   }
 
-  const publicPages = ['/login', '/register', '/', '/download', '/about', '/privacy', '/terms', '/license', '/landing']
+  const publicPages = ['/', '/login', '/register', '/download']
   const isPublic = publicPages.includes(to.path)
+
+  if (to.path === '/') {
+    return navigateTo(isAuthenticated.value ? '/dashboard' : '/login', { replace: true })
+  }
 
   // Protected route without auth → redirect
   if (!isPublic && !isAuthenticated.value) {

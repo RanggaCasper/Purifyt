@@ -23,8 +23,8 @@ const toggleLocale = () => {
       <div
         class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between"
       >
-        <NuxtLink
-          to="/"
+          <NuxtLink
+            to="/download"
           class="flex items-center gap-2"
         >
           <img
@@ -177,38 +177,6 @@ const toggleLocale = () => {
             </ul>
           </div>
 
-          <!-- Legal & Info -->
-          <div>
-            <h4 class="text-sm font-semibold text-highlighted mb-4">
-              {{ $t("footer.legal") }}
-            </h4>
-            <ul class="space-y-2.5">
-              <li>
-                <NuxtLink
-                  to="/about"
-                  class="text-sm text-muted hover:text-highlighted transition-colors"
-                >{{ $t("footer.about") }}</NuxtLink>
-              </li>
-              <li>
-                <NuxtLink
-                  to="/privacy"
-                  class="text-sm text-muted hover:text-highlighted transition-colors"
-                >{{ $t("footer.privacy") }}</NuxtLink>
-              </li>
-              <li>
-                <NuxtLink
-                  to="/terms"
-                  class="text-sm text-muted hover:text-highlighted transition-colors"
-                >{{ $t("footer.terms") }}</NuxtLink>
-              </li>
-              <li>
-                <NuxtLink
-                  to="/license"
-                  class="text-sm text-muted hover:text-highlighted transition-colors"
-                >{{ $t("footer.license") }}</NuxtLink>
-              </li>
-            </ul>
-          </div>
         </div>
       </div>
 

@@ -67,7 +67,7 @@ onBeforeUnmount(() => serverStore.stopPolling())
       >
         <NuxtLink
           v-if="sidebarOpen || mobileSidebarOpen"
-          to="/"
+          to="/dashboard"
           class="flex items-center gap-2 overflow-hidden min-w-0"
         >
           <img
