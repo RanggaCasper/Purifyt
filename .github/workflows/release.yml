@@ -1,0 +1,209 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - website/package.json
+      - website/src-tauri/tauri.conf.json
+      - .github/workflows/release.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish release
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check version change
+        id: version
+        shell: pwsh
+        run: |
+          $packageVersion = (Get-Content -Raw -LiteralPath "website/package.json" | ConvertFrom-Json).version
+          $tauriVersion = (Get-Content -Raw -LiteralPath "website/src-tauri/tauri.conf.json" | ConvertFrom-Json).version
+          if ($packageVersion -ne $tauriVersion) {
+            throw "Version mismatch: website/package.json=$packageVersion, website/src-tauri/tauri.conf.json=$tauriVersion"
+          }
+
+          $previousPackageVersion = ""
+          $previousTauriVersion = ""
+
+          if (git rev-parse HEAD~1 2>$null) {
+            $previousJson = git show HEAD~1:website/package.json 2>$null
+            if ($LASTEXITCODE -eq 0 -and $previousJson) {
+              $previousPackageVersion = ($previousJson | ConvertFrom-Json).version
+            }
+
+            $previousTauriJson = git show HEAD~1:website/src-tauri/tauri.conf.json 2>$null
+            if ($LASTEXITCODE -eq 0 -and $previousTauriJson) {
+              $previousTauriVersion = ($previousTauriJson | ConvertFrom-Json).version
+            }
+          }
+
+          $changed = "false"
+          if ("${{ github.event_name }}" -eq "workflow_dispatch" -or $packageVersion -ne $previousPackageVersion -or $tauriVersion -ne $previousTauriVersion) {
+            $changed = "true"
+          }
+
+          "version=$packageVersion" >> $env:GITHUB_OUTPUT
+          "tag=v$packageVersion" >> $env:GITHUB_OUTPUT
+          "changed=$changed" >> $env:GITHUB_OUTPUT
+          "previous=$previousPackageVersion" >> $env:GITHUB_OUTPUT
+
+      - name: Stop when version is unchanged
+        if: steps.version.outputs.changed != 'true'
+        shell: pwsh
+        run: |
+          Write-Host "website/package.json version is unchanged (${{ steps.version.outputs.version }}). Release skipped."
+
+      - name: Setup Python
+        if: steps.version.outputs.changed == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Setup Node.js
+        if: steps.version.outputs.changed == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Setup pnpm
+        if: steps.version.outputs.changed == 'true'
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.29.3
+
+      - name: Setup Rust
+        if: steps.version.outputs.changed == 'true'
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install backend dependencies
+        if: steps.version.outputs.changed == 'true'
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Install frontend dependencies
+        if: steps.version.outputs.changed == 'true'
+        working-directory: website
+        run: pnpm install --frozen-lockfile
+
+      - name: Run backend tests
+        if: steps.version.outputs.changed == 'true'
+        run: pytest
+
+      - name: Run frontend typecheck
+        if: steps.version.outputs.changed == 'true'
+        working-directory: website
+        run: pnpm exec vue-tsc --noEmit
+
+      - name: Build Purifyt server
+        if: steps.version.outputs.changed == 'true'
+        run: python -m PyInstaller purifyt.spec
+
+      - name: Build desktop installer
+        if: steps.version.outputs.changed == 'true'
+        working-directory: website
+        run: pnpm tauri build
+
+      - name: Prepare release assets
+        if: steps.version.outputs.changed == 'true'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path release-assets | Out-Null
+
+          Copy-Item -LiteralPath "dist/purifyt-server.exe" -Destination "release-assets/purifyt-server-windows-x64.exe"
+
+          $installer = Get-ChildItem -LiteralPath "website/src-tauri/target/release/bundle/nsis" -Filter "*.exe" | Select-Object -First 1
+          if (-not $installer) {
+            throw "Desktop installer was not found in website/src-tauri/target/release/bundle/nsis"
+          }
+          Copy-Item -LiteralPath $installer.FullName -Destination "release-assets/Purifyt-Desktop-Windows-x64-Setup.exe"
+
+      - name: Generate release notes
+        if: steps.version.outputs.changed == 'true'
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $tag = "${{ steps.version.outputs.tag }}"
+          $date = Get-Date -Format "yyyy-MM-dd"
+          $commits = git log --pretty=format:"- %s (%h)" $(git describe --tags --abbrev=0 2>$null)..HEAD 2>$null
+          if (-not $commits) {
+            $commits = git log -10 --pretty=format:"- %s (%h)"
+          }
+
+          @"
+          # Purifyt $tag
+
+          Release date: $date
+
+          Purifyt is a desktop application for collecting, managing, predicting, labeling, and cleaning YouTube comments related to online gambling spam.
+
+          ## Downloads
+
+          | File | Use this when | Notes |
+          | --- | --- | --- |
+          | `Purifyt-Desktop-Windows-x64-Setup.exe` | You want the full desktop application | Recommended for normal users. Includes the bundled Purifyt server sidecar. |
+          | `purifyt-server-windows-x64.exe` | You only need the standalone backend server | Useful for advanced users, testing, or custom frontend integration. |
+
+          ## Quick Start
+
+          1. Download `Purifyt-Desktop-Windows-x64-Setup.exe`.
+          2. Run the installer.
+          3. Open Purifyt from the Start Menu or desktop shortcut.
+          4. Register or sign in.
+          5. Configure API keys in Settings if you want to use YouTube, Kaggle, or automation features.
+
+          ## Standalone Server
+
+          Download `purifyt-server-windows-x64.exe` if you want to run only the backend.
+
+          ```powershell
+          .\purifyt-server-windows-x64.exe
+          ```
+
+          The server is intended for local usage and desktop integration. Check the application settings and API documentation for available endpoints.
+
+          ## What's Included
+
+          - Desktop app build for Windows x64.
+          - Standalone Purifyt backend server for Windows x64.
+          - Model-backed comment prediction and labeling workflow.
+          - Dataset import, manual dataset management, and CSV export features.
+
+          ## Changes
+
+          $commits
+
+          ## Notes
+
+          - Windows may show a SmartScreen warning because the installer is not code-signed.
+          - Keep your API keys private. Do not upload `.env` files or local app data when reporting issues.
+          - If an upgrade behaves unexpectedly, restart the Purifyt app and try again.
+          "@ | Set-Content -LiteralPath RELEASE_NOTES.md -Encoding UTF8
+
+      - name: Create GitHub Release
+        if: steps.version.outputs.changed == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: Purifyt ${{ steps.version.outputs.tag }}
+          body_path: RELEASE_NOTES.md
+          draft: false
+          prerelease: false
+          fail_on_unmatched_files: true
+          files: |
+            release-assets/Purifyt-Desktop-Windows-x64-Setup.exe
+            release-assets/purifyt-server-windows-x64.exe
