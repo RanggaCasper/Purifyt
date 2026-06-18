@@ -143,9 +143,9 @@ jobs:
           $version = "${{ steps.version.outputs.version }}"
           $tag = "${{ steps.version.outputs.tag }}"
           $date = Get-Date -Format "yyyy-MM-dd"
-          $commits = git log --pretty=format:"- %s (%h)" $(git describe --tags --abbrev=0 2>$null)..HEAD 2>$null
+          $commits = (git log --pretty=format:"- %s (%h)" $(git describe --tags --abbrev=0 2>$null)..HEAD 2>$null) -join "`n"
           if (-not $commits) {
-            $commits = git log -10 --pretty=format:"- %s (%h)"
+            $commits = (git log -10 --pretty=format:"- %s (%h)") -join "`n"
           }
 
           @"
