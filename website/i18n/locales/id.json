@@ -142,6 +142,13 @@
     "user": "Pengguna"
   },
 
+  "server": {
+    "on": "Server ON",
+    "off": "Server OFF",
+    "turnOn": "Nyalakan Purifyt Server",
+    "turnOff": "Matikan Purifyt Server"
+  },
+
   "auth": {
     "welcomeBack": "Selamat datang kembali",
     "signInDesc": "Masuk ke akun Purifyt Anda",

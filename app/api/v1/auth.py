@@ -27,11 +27,14 @@ logger = get_logger(__name__)
 settings = get_settings()
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 DESKTOP_REFRESH_HEADER = "x-refresh-token"
+CLIENT_REFRESH_HEADER = "x-purifyt-client"
 
 
 def _is_desktop_request(request: Request | None) -> bool:
     if not request:
         return False
+    if request.headers.get(CLIENT_REFRESH_HEADER):
+        return True
     origin = request.headers.get("origin", "")
     return origin.startswith(("tauri://", "http://tauri.localhost", "https://tauri.localhost"))
 

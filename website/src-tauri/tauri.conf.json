@@ -5,7 +5,7 @@
   "build": {
     "beforeDevCommand": "pnpm dev",
     "devUrl": "http://localhost:3000",
-    "beforeBuildCommand": "pnpm generate",
+    "beforeBuildCommand": "pnpm build:server && pnpm generate",
     "frontendDist": "../.output/public"
   },
   "app": {
@@ -25,9 +25,10 @@
   "bundle": {
     "active": true,
     "targets": ["nsis"],
+    "externalBin": ["binaries/purifyt-server"],
     "windows": {
       "nsis": {
-        "installMode": "both"
+        "installMode": "perMachine"
       }
     }
   }

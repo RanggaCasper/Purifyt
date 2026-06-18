@@ -5,6 +5,7 @@ const { isAuthenticated, user: authUser, logout } = useAuth()
 const route = useRoute()
 const colorMode = useColorMode()
 const { t, locale, setLocale } = useI18n()
+const serverStore = useServerStore()
 
 const toggleLocale = () => {
   setLocale(locale.value === 'id' ? 'en' : 'id')
@@ -30,6 +31,14 @@ const isActive = (to: string) => {
 const toggleDarkMode = () => {
   colorMode.preference = colorMode.value === 'dark' ? 'light' : 'dark'
 }
+
+const toggleServer = async () => {
+  if (serverStore.running) await serverStore.stopServer()
+  else await serverStore.startServer()
+}
+
+onMounted(() => serverStore.startPolling())
+onBeforeUnmount(() => serverStore.stopPolling())
 </script>
 
 <template>
@@ -147,6 +156,17 @@ const toggleDarkMode = () => {
         </div>
 
         <div class="flex items-center gap-2">
+          <UButton
+            v-if="serverStore.isDesktop"
+            :icon="serverStore.running ? 'i-lucide-server' : 'i-lucide-server-off'"
+            :color="serverStore.running ? 'success' : 'error'"
+            :variant="serverStore.running ? 'soft' : 'outline'"
+            :loading="serverStore.loading"
+            size="sm"
+            :label="serverStore.running ? $t('server.on') : $t('server.off')"
+            :title="serverStore.error || (serverStore.running ? $t('server.turnOff') : $t('server.turnOn'))"
+            @click="toggleServer"
+          />
           <button
             class="w-9 h-9 flex items-center justify-center rounded-lg text-muted hover:bg-elevated hover:text-highlighted transition-colors text-xs font-semibold"
             :title="locale === 'id' ? 'Switch to English' : 'Ganti ke Bahasa Indonesia'"

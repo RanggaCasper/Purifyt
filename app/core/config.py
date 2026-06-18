@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     # App
     APP_NAME: str = "Purifyt - YouTube Comment Dataset API"
     APP_VERSION: str = "1.0.0"
+    APP_PORT: int = 51441
     DEBUG: bool = True
 
     # MySQL

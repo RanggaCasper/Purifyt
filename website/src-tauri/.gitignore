@@ -1,2 +1,3 @@
 # Ignore Tauri build artifacts
 /target
+/binaries/purifyt-server-*

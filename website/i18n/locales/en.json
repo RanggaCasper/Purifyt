@@ -142,6 +142,13 @@
     "user": "User"
   },
 
+  "server": {
+    "on": "Server ON",
+    "off": "Server OFF",
+    "turnOn": "Turn Purifyt Server on",
+    "turnOff": "Turn Purifyt Server off"
+  },
+
   "auth": {
     "welcomeBack": "Welcome back",
     "signInDesc": "Sign in to your Purifyt account",

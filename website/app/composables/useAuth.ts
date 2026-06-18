@@ -10,21 +10,22 @@ interface AuthState {
 
 const AUTH_STATE_KEY = '__auth__'
 const DESKTOP_REFRESH_TOKEN_KEY = 'purifyt_refresh_token'
+const CLIENT_REFRESH_HEADER = 'x-purifyt-client'
 
-const isDesktopRuntime = () => import.meta.client && window.location.protocol === 'tauri:'
+const canUseClientRefreshToken = () => import.meta.client
 
 const getDesktopRefreshToken = () => {
-  if (!isDesktopRuntime()) return null
+  if (!canUseClientRefreshToken()) return null
   return localStorage.getItem(DESKTOP_REFRESH_TOKEN_KEY)
 }
 
 const setDesktopRefreshToken = (token?: string) => {
-  if (!isDesktopRuntime() || !token) return
+  if (!canUseClientRefreshToken() || !token) return
   localStorage.setItem(DESKTOP_REFRESH_TOKEN_KEY, token)
 }
 
 const clearDesktopRefreshToken = () => {
-  if (!isDesktopRuntime()) return
+  if (!canUseClientRefreshToken()) return
   localStorage.removeItem(DESKTOP_REFRESH_TOKEN_KEY)
 }
 
@@ -59,6 +60,9 @@ export const useAuth = () => {
       credentials: 'include',
       headers: {
         ...(opts.headers || {}),
+        ...(canUseClientRefreshToken()
+          ? { [CLIENT_REFRESH_HEADER]: 'static' }
+          : {}),
         ...(desktopRefreshToken
           ? { 'x-refresh-token': desktopRefreshToken }
           : {}),
