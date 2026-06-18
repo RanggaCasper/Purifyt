@@ -16,6 +16,11 @@ const commentsLoading = ref(false)
 const autoLabelLoading = ref(false)
 const searchQuery = ref('')
 const labelFilter = ref<'all' | 'judi' | 'normal' | 'unlabeled'>('all')
+const showManualCommentForm = ref(false)
+const manualCommentLoading = ref(false)
+const manualCommentForm = reactive({
+  comment: ''
+})
 
 const commentPage = ref(1)
 const commentPerPage = ref(50)
@@ -89,7 +94,7 @@ const filteredComments = computed(() => {
   const q = searchQuery.value.trim().toLowerCase()
   if (q) {
     list = list.filter(
-      c => c.comment.toLowerCase().includes(q) || c.author.toLowerCase().includes(q)
+      c => c.comment.toLowerCase().includes(q) || (c.author ?? '').toLowerCase().includes(q)
     )
   }
   if (labelFilter.value === 'judi') return list.filter(c => effectiveLabel(c) === 1)
@@ -188,6 +193,76 @@ async function handleAutoLabel() {
   }
 }
 
+async function handleManualCommentCreate() {
+  const comment = manualCommentForm.comment.trim()
+  if (!comment) {
+    toast.add({ title: t('datasetDetail.manualCommentRequired'), color: 'warning' })
+    return
+  }
+
+  manualCommentLoading.value = true
+  try {
+    await datasetStore.createManualComment(datasetId.value, {
+      comment
+    })
+    toast.add({ title: t('datasetDetail.manualCommentCreated'), color: 'success' })
+    manualCommentForm.comment = ''
+    showManualCommentForm.value = false
+  } catch (error: unknown) {
+    const err = error as { message?: string }
+    toast.add({ title: err.message || t('datasetDetail.manualCommentFailed'), color: 'error' })
+  } finally {
+    manualCommentLoading.value = false
+  }
+}
+
+function csvEscape(value: unknown) {
+  const text = value === null || value === undefined ? '' : String(value)
+  return `"${text.replace(/"/g, '""')}"`
+}
+
+function handleExportCsv() {
+  const rows = filteredComments.value
+  if (rows.length === 0) {
+    toast.add({ title: t('datasetDetail.exportEmpty'), color: 'warning' })
+    return
+  }
+
+  const columns = [
+    'id',
+    'dataset_id',
+    'video_id',
+    'title',
+    'channel_name',
+    'date',
+    'author',
+    'comment',
+    'clean_comment',
+    'label',
+    'predicted_label',
+    'source',
+    'source_detail',
+    'created_at'
+  ] as const
+  const csv = [
+    columns.join(','),
+    ...rows.map(row => columns.map(column => csvEscape(row[column])).join(','))
+  ].join('\r\n')
+  const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  const datasetName = datasetStore.currentDataset?.name || `dataset-${datasetId.value}`
+  const safeName = datasetName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || `dataset-${datasetId.value}`
+
+  link.href = url
+  link.download = `${safeName}-comments.csv`
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+  toast.add({ title: t('datasetDetail.exportSuccess'), color: 'success' })
+}
+
 function goToCommentPage(page: number) {
   if (page < 1 || page > totalCommentPages.value) return
   commentPage.value = page
@@ -205,8 +280,8 @@ onMounted(() => loadData())
 <template>
   <div>
     <!-- Header -->
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-      <div>
+    <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-6">
+      <div class="min-w-0 flex-1">
         <div class="flex items-center gap-2 mb-1">
           <UButton
             to="/datasets"
@@ -229,13 +304,68 @@ onMounted(() => loadData())
         </p>
       </div>
 
-      <UButton
-        :label="$t('datasetDetail.predictBtn')"
-        icon="i-lucide-sparkles"
-        :loading="autoLabelLoading"
-        @click="handleAutoLabel"
-      />
+      <div class="flex flex-col sm:flex-row gap-2 lg:justify-end">
+        <UButton
+          class="justify-center"
+          :label="$t('datasetDetail.predictBtn')"
+          icon="i-lucide-sparkles"
+          :loading="autoLabelLoading"
+          @click="handleAutoLabel"
+        />
+        <UButton
+          class="justify-center"
+          :label="$t('datasetDetail.exportCsv')"
+          icon="i-lucide-download"
+          variant="outline"
+          :disabled="filteredComments.length === 0"
+          @click="handleExportCsv"
+        />
+        <UButton
+          class="justify-center"
+          :label="$t('datasetDetail.showManualComment')"
+          icon="i-lucide-message-square-plus"
+          @click="showManualCommentForm = true"
+        />
+      </div>
     </div>
+
+    <UModal v-model:open="showManualCommentForm">
+      <template #content>
+        <div class="p-5 space-y-4 max-w-2xl w-full">
+        <div>
+          <h2 class="text-base font-semibold text-highlighted">
+            {{ $t('datasetDetail.manualCommentTitle') }}
+          </h2>
+          <p class="text-sm text-muted mt-1">
+            {{ $t('datasetDetail.manualCommentDesc') }}
+          </p>
+        </div>
+        <UFormField :label="$t('datasetDetail.manualCommentField')" required>
+          <UTextarea
+            v-model="manualCommentForm.comment"
+            class="w-full"
+            :placeholder="$t('datasetDetail.manualCommentPlaceholder')"
+            :rows="4"
+          />
+        </UFormField>
+        <div class="flex justify-end gap-2">
+          <UButton
+            variant="outline"
+            color="neutral"
+            :label="$t('common.cancel')"
+            :disabled="manualCommentLoading"
+            @click="showManualCommentForm = false"
+          />
+          <UButton
+            icon="i-lucide-save"
+            :label="$t('datasetDetail.manualCommentSave')"
+            :loading="manualCommentLoading"
+            @click="handleManualCommentCreate"
+          />
+        </div>
+      </div>
+      </template>
+    </UModal>
 
     <!-- Stats -->
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">

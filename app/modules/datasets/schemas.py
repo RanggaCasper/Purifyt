@@ -20,6 +20,11 @@ class CommentCreate(CommentBase):
     dataset_id: int
 
 
+class ManualCommentCreate(BaseModel):
+    comment: str
+    label: Optional[str] = None
+
+
 class CommentResponse(CommentBase):
     id: int
     dataset_id: int

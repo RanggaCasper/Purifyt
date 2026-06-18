@@ -44,7 +44,7 @@ function resetExplorer() {
       class="space-y-4"
       @submit.prevent="runChannelExplorer"
     >
-      <UFormField :label="$t('explorer.channelNameLabel')">
+      <UFormField :label="$t('explorer.channelNameLabel')" required>
         <UInput
           v-model="channelForm.channel"
           :placeholder="$t('explorer.channelNamePlaceholder')"
@@ -54,7 +54,7 @@ function resetExplorer() {
         />
       </UFormField>
 
-      <UFormField :label="$t('explorer.maxVideos')">
+      <UFormField :label="$t('explorer.maxVideos')" required>
         <UInput
           v-model.number="channelForm.maxVideos"
           type="number"

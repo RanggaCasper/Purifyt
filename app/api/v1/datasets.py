@@ -10,6 +10,7 @@ from app.modules.datasets.schemas import (
     DatasetCreate,
     DatasetResponse,
     DatasetDetailResponse,
+    ManualCommentCreate,
     CommentResponse,
     MessageResponse,
 )
@@ -74,6 +75,7 @@ async def create_dataset(
         await CommentRepository(db).create(
             dataset_id=dataset.id,
             video_id="manual",
+            author=current_user.username,
             comment=comment,
             source=DataSource.MANUAL,
             source_detail="Manual input",
@@ -88,6 +90,51 @@ async def create_dataset(
         owner_id=dataset.owner_id,
         created_at=dataset.created_at,
         comment_count=1 if comment else 0,
+    ))
+
+
+@router.post("/{dataset_id}/comments", response_model=APIResponse)
+async def create_manual_comment(
+    dataset_id: int,
+    payload: ManualCommentCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    comment_text = payload.comment.strip()
+    if not comment_text:
+        raise HTTPException(status_code=400, detail="Comment is required")
+
+    repo = DatasetRepository(db)
+    dataset = await repo.get_by_id(dataset_id)
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+
+    comment = await CommentRepository(db).create(
+        dataset_id=dataset.id,
+        video_id="manual",
+        author=current_user.username,
+        comment=comment_text,
+        label=payload.label,
+        source=DataSource.MANUAL,
+        source_detail="Manual input",
+    )
+    await db.commit()
+
+    return success_response(data=CommentResponse(
+        id=comment.id,
+        dataset_id=comment.dataset_id,
+        video_id=comment.video_id,
+        title=comment.title,
+        channel_name=comment.channel_name,
+        date=comment.date,
+        author=comment.author,
+        comment=comment.comment,
+        label=comment.label,
+        clean_comment=comment.clean_comment,
+        predicted_label=comment.predicted_label,
+        source=comment.source.value,
+        source_detail=comment.source_detail,
+        created_at=comment.created_at,
     ))
 
 

@@ -53,7 +53,7 @@ async function handleLogin() {
       class="space-y-4"
       @submit.prevent="handleLogin"
     >
-      <UFormField :label="$t('autoDelete.googleEmail')">
+      <UFormField :label="$t('autoDelete.googleEmail')" required>
         <UInput
           v-model="loginForm.email"
           type="email"
@@ -65,7 +65,7 @@ async function handleLogin() {
         />
       </UFormField>
 
-      <UFormField :label="$t('common.password')">
+      <UFormField :label="$t('common.password')" required>
         <UInput
           v-model="loginForm.password"
           type="password"

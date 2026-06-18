@@ -43,7 +43,7 @@ function resetExplorer() {
       class="space-y-4"
       @submit.prevent="runVideoExplorer"
     >
-      <UFormField :label="$t('explorer.videoUrlLabel')">
+      <UFormField :label="$t('explorer.videoUrlLabel')" required>
         <UInput
           v-model="videoForm.videoId"
           :placeholder="$t('explorer.videoUrlPlaceholder')"

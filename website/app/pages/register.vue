@@ -70,7 +70,7 @@ async function handleRegister() {
         icon="i-lucide-alert-circle"
       />
 
-      <UFormField :label="$t('common.username')">
+      <UFormField :label="$t('common.username')" required>
         <UInput
           v-model="form.username"
           :placeholder="$t('auth.chooseUsername')"
@@ -82,7 +82,7 @@ async function handleRegister() {
         />
       </UFormField>
 
-      <UFormField :label="$t('common.password')">
+      <UFormField :label="$t('common.password')" required>
         <UInput
           v-model="form.password"
           type="password"
@@ -94,7 +94,7 @@ async function handleRegister() {
         />
       </UFormField>
 
-      <UFormField :label="$t('auth.confirmPassword')">
+      <UFormField :label="$t('auth.confirmPassword')" required>
         <UInput
           v-model="form.confirmPassword"
           type="password"

@@ -37,7 +37,7 @@ function reset() {
       class="space-y-4"
       @submit.prevent="predictBatch"
     >
-      <UFormField :label="$t('predict.commentsPerLine')">
+      <UFormField :label="$t('predict.commentsPerLine')" required>
         <UTextarea
           v-model="batchText"
           :placeholder="$t('predict.batchPlaceholder') + '\nslot gacor\nnice video!'"

@@ -14,12 +14,12 @@ const currentPage = ref(1)
 const perPage = ref(20)
 const importLoading = ref(false)
 const manualLoading = ref(false)
+const exportLoading = ref(false)
 const showKaggleImport = ref(false)
 const showManualCreate = ref(false)
 const manualForm = reactive({
   name: '',
-  description: '',
-  comment: ''
+  description: ''
 })
 const kaggleForm = reactive({
   datasetSlug: '',
@@ -133,13 +133,11 @@ async function handleManualCreate() {
   try {
     const dataset = await datasetStore.createManualDataset({
       name,
-      description: manualForm.description.trim() || undefined,
-      comment: manualForm.comment.trim() || undefined
+      description: manualForm.description.trim() || undefined
     })
     toast.add({ title: t('datasets.manualCreateSuccess', { name: dataset.name }), color: 'success' })
     manualForm.name = ''
     manualForm.description = ''
-    manualForm.comment = ''
     showManualCreate.value = false
     await loadDatasets(1)
   } catch (error: unknown) {
@@ -147,6 +145,93 @@ async function handleManualCreate() {
     toast.add({ title: err.message || t('datasets.manualCreateFailed'), color: 'error' })
   } finally {
     manualLoading.value = false
+  }
+}
+
+function csvEscape(value: unknown) {
+  const text = value === null || value === undefined ? '' : String(value)
+  return `"${text.replace(/"/g, '""')}"`
+}
+
+async function handleExportAllCommentsCsv() {
+  exportLoading.value = true
+  try {
+    const { apiFetch } = useApi()
+    await datasetStore.fetchAllDatasets()
+    const datasets = datasetStore.allDatasets
+    const results = await Promise.all(
+      datasets.map(async dataset => {
+        const params = new URLSearchParams({ page: '1', per_page: '99999' })
+        const response = await apiFetch<PaginatedResponse<Comment>>(
+          `/api/v1/datasets/${dataset.id}/comments?${params}`
+        )
+        return response.items.map(comment => ({ dataset, comment }))
+      })
+    )
+    const rows = results.flat()
+
+    if (rows.length === 0) {
+      toast.add({ title: t('datasets.exportEmpty'), color: 'warning' })
+      return
+    }
+
+    const columns = [
+      'dataset_id',
+      'dataset_name',
+      'dataset_source',
+      'dataset_created_at',
+      'id',
+      'video_id',
+      'title',
+      'channel_name',
+      'date',
+      'author',
+      'comment',
+      'clean_comment',
+      'label',
+      'predicted_label',
+      'source',
+      'source_detail',
+      'created_at'
+    ]
+    const csv = [
+      columns.join(','),
+      ...rows.map(({ dataset, comment }) => [
+        dataset.id,
+        dataset.name,
+        dataset.source,
+        dataset.created_at,
+        comment.id,
+        comment.video_id,
+        comment.title,
+        comment.channel_name,
+        comment.date,
+        comment.author,
+        comment.comment,
+        comment.clean_comment,
+        comment.label,
+        comment.predicted_label,
+        comment.source,
+        comment.source_detail,
+        comment.created_at
+      ].map(csvEscape).join(','))
+    ].join('\r\n')
+    const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+
+    link.href = url
+    link.download = 'purifyt-all-comments.csv'
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+    toast.add({ title: t('datasets.exportCommentsSuccess'), color: 'success' })
+  } catch (error: unknown) {
+    const err = error as { message?: string }
+    toast.add({ title: err.message || t('datasets.exportCommentsFailed'), color: 'error' })
+  } finally {
+    exportLoading.value = false
   }
 }
 
@@ -191,25 +276,28 @@ const sourceColor = (source: string) => {
       />
       <div class="flex flex-col sm:flex-row gap-2">
         <UButton
+          icon="i-lucide-download"
+          variant="outline"
+          :label="$t('datasets.exportCommentsCsv')"
+          :loading="exportLoading"
+          @click="handleExportAllCommentsCsv"
+        />
+        <UButton
           icon="i-lucide-plus"
-          :label="showManualCreate ? $t('datasets.hideManualCreate') : $t('datasets.showManualCreate')"
-          :variant="showManualCreate ? 'outline' : 'solid'"
-          @click="showManualCreate = !showManualCreate"
+          :label="$t('datasets.showManualCreate')"
+          @click="showManualCreate = true"
         />
         <UButton
           icon="i-lucide-download-cloud"
-          :label="showKaggleImport ? $t('datasets.hideKaggleImport') : $t('datasets.showKaggleImport')"
-          :variant="showKaggleImport ? 'outline' : 'solid'"
-          @click="showKaggleImport = !showKaggleImport"
+          :label="$t('datasets.showKaggleImport')"
+          @click="showKaggleImport = true"
         />
       </div>
     </div>
 
-    <DataCard
-      v-if="showManualCreate"
-      class="mb-6"
-    >
-      <div class="p-5 space-y-5">
+    <UModal v-model:open="showManualCreate">
+      <template #content>
+        <div class="p-5 space-y-5 max-w-2xl w-full">
         <div>
           <h2 class="text-base font-semibold text-highlighted">
             {{ $t('datasets.manualCreateTitle') }}
@@ -219,7 +307,7 @@ const sourceColor = (source: string) => {
           </p>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="space-y-4">
           <UFormField :label="$t('datasets.manualDatasetName')" required>
             <UInput
               v-model="manualForm.name"
@@ -228,22 +316,14 @@ const sourceColor = (source: string) => {
             />
           </UFormField>
           <UFormField :label="$t('datasets.manualDatasetDescription')" :hint="$t('common.optional')">
-            <UInput
+            <UTextarea
               v-model="manualForm.description"
               class="w-full"
               :placeholder="$t('datasets.manualDatasetDescriptionPlaceholder')"
+              :rows="4"
             />
           </UFormField>
         </div>
-
-        <UFormField :label="$t('datasets.manualComment')" :hint="$t('common.optional')">
-          <UTextarea
-            v-model="manualForm.comment"
-            class="w-full"
-            :placeholder="$t('datasets.manualCommentPlaceholder')"
-            :rows="4"
-          />
-        </UFormField>
 
         <div class="flex justify-end gap-2">
           <UButton
@@ -261,13 +341,12 @@ const sourceColor = (source: string) => {
           />
         </div>
       </div>
-    </DataCard>
+      </template>
+    </UModal>
 
-    <DataCard
-      v-if="showKaggleImport"
-      class="mb-6"
-    >
-      <div class="p-5 space-y-5">
+    <UModal v-model:open="showKaggleImport">
+      <template #content>
+        <div class="p-5 space-y-5 max-w-4xl w-full max-h-[85vh] overflow-y-auto">
         <div>
           <h2 class="text-base font-semibold text-highlighted">
             {{ $t('datasets.kaggleImportTitle') }}
@@ -329,7 +408,8 @@ const sourceColor = (source: string) => {
           />
         </div>
       </div>
-    </DataCard>
+      </template>
+    </UModal>
 
     <!-- Filters + per-page -->
     <DatasetFilterBar

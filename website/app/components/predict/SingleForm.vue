@@ -32,7 +32,7 @@ function reset() {
       class="space-y-4"
       @submit.prevent="predictSingle"
     >
-      <UFormField :label="$t('predict.commentLabel')">
+      <UFormField :label="$t('predict.commentLabel')" required>
         <UTextarea
           v-model="singleText"
           :placeholder="$t('predict.commentPlaceholder')"

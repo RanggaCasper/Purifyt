@@ -88,7 +88,7 @@ async function handleScan(preview = false) {
       class="space-y-4"
       @submit.prevent="handleScan(false)"
     >
-      <UFormField :label="$t('autoDelete.videoUrlLabel')">
+      <UFormField :label="$t('autoDelete.videoUrlLabel')" required>
         <UInput
           v-model="scanForm.videoId"
           placeholder="https://youtube.com/watch?v=... or video ID"
@@ -98,7 +98,7 @@ async function handleScan(preview = false) {
         />
       </UFormField>
 
-      <UFormField :label="$t('autoDelete.googleAccount')">
+      <UFormField :label="$t('autoDelete.googleAccount')" required>
         <select
           v-model="scanForm.email"
           :disabled="autoDeleteStore.accountsLoading || accountOptions.length === 0"

@@ -60,7 +60,7 @@ async function handleLogin() {
         icon="i-lucide-alert-circle"
       />
 
-      <UFormField :label="$t('common.username')">
+      <UFormField :label="$t('common.username')" required>
         <UInput
           v-model="form.username"
           :placeholder="$t('auth.enterUsername')"
@@ -72,7 +72,7 @@ async function handleLogin() {
         />
       </UFormField>
 
-      <UFormField :label="$t('common.password')">
+      <UFormField :label="$t('common.password')" required>
         <UInput
           v-model="form.password"
           type="password"

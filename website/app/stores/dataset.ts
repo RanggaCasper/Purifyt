@@ -41,6 +41,11 @@ export interface ManualDatasetPayload {
   comment?: string
 }
 
+export interface ManualCommentPayload {
+  comment: string
+  label?: string
+}
+
 interface DatasetState {
   datasets: Dataset[]
   allDatasets: Dataset[]
@@ -146,6 +151,20 @@ export const useDatasetStore = defineStore('dataset', {
         method: 'POST',
         body: payload
       })
+    },
+
+    async createManualComment(datasetId: number, payload: ManualCommentPayload) {
+      const { apiFetch } = useApi()
+
+      const comment = await apiFetch<Comment>(`/api/v1/datasets/${datasetId}/comments`, {
+        method: 'POST',
+        body: payload
+      })
+      comment.label = comment.label !== null && comment.label !== undefined ? Number(comment.label) : null
+      this.comments.unshift(comment)
+      this.commentTotal += 1
+      if (this.currentDataset) this.currentDataset.comment_count += 1
+      return comment
     }
   }
 })
