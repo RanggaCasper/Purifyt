@@ -525,6 +525,14 @@ class YouTubeStudioAPI:
             return 0
         self._debug_log("  batch delete diklik OK")
 
+        # YouTube Studio can show an extra identity confirmation dialog before
+        # the actual delete confirmation. Do not continue while it is still open.
+        self._debug_log("STEP 5b: _handle_identity_verification_dialog()")
+        if not self._handle_identity_verification_dialog():
+            self._debug_log("ABORT: identity verification dialog belum selesai")
+            logger.error("Verifikasi diri belum selesai; komentar belum dihapus.")
+            return 0
+
         # Confirm the delete dialog
         self._debug_log("STEP 6: _confirm_delete_dialog()")
         if not self._confirm_delete_dialog():
@@ -962,6 +970,71 @@ class YouTubeStudioAPI:
         logger.error("Tombol batch delete tidak ditemukan di mana pun!")
         return False
 
+    def _identity_verification_dialog_xpath(self) -> str:
+        """XPath for YouTube Studio's identity verification interstitial."""
+        return (
+            "//*[@role='dialog' and .//*[contains(., 'Verifikasi diri Anda') "
+            "or contains(., 'mengonfirmasi bahwa ini memang Anda') "
+            "or contains(., 'Verify it') or contains(., 'Verify yourself') "
+            "or contains(., 'confirm it') "
+            "or contains(., 'confirm that this is really you')]]"
+        )
+
+    def _is_identity_verification_dialog_visible(self) -> bool:
+        try:
+            dialogs = self.driver.find_elements(By.XPATH, self._identity_verification_dialog_xpath())
+            return any(dialog.is_displayed() for dialog in dialogs)
+        except Exception:
+            return False
+
+    def _handle_identity_verification_dialog(self, timeout: int = 180) -> bool:
+        """Click Next, then wait until identity verification is completed manually."""
+        dialog_xpath = self._identity_verification_dialog_xpath()
+
+        try:
+            WebDriverWait(self.driver, 3).until(
+                EC.visibility_of_element_located((By.XPATH, dialog_xpath))
+            )
+        except TimeoutException:
+            return True
+
+        next_selectors = [
+            (By.CSS_SELECTOR, "tp-yt-paper-dialog[role='dialog'] #confirm-button"),
+            (By.XPATH, dialog_xpath + "//ytcp-button[@id='confirm-button']"),
+            (By.XPATH, dialog_xpath + "//button[contains(., 'Berikutnya')]"),
+            (By.XPATH, dialog_xpath + "//button[contains(., 'Next')]"),
+            (By.XPATH, dialog_xpath + "//*[contains(., 'Berikutnya')]/ancestor::button"),
+            (By.XPATH, dialog_xpath + "//*[contains(., 'Next')]/ancestor::button"),
+        ]
+
+        for by, selector in next_selectors:
+            try:
+                btn = WebDriverWait(self.driver, 3).until(
+                    EC.element_to_be_clickable((by, selector))
+                )
+                self.driver.execute_script("arguments[0].click();", btn)
+                logger.info("Dialog verifikasi diri diklik Berikutnya/Next")
+                break
+            except TimeoutException:
+                continue
+        else:
+            logger.warning("Dialog verifikasi diri muncul, tapi tombol Berikutnya/Next tidak ditemukan")
+
+        logger.warning(
+            "Menunggu verifikasi diri selesai di browser sampai %s detik...",
+            timeout,
+        )
+        start = time.time()
+        while time.time() - start < timeout:
+            if not self._is_identity_verification_dialog_visible():
+                logger.info("Verifikasi diri selesai; melanjutkan hapus komentar")
+                time.sleep(ACTION_DELAY)
+                return True
+            time.sleep(2)
+
+        logger.error("Timeout menunggu verifikasi diri selesai")
+        return False
+
     def _confirm_delete_dialog(self) -> bool:
         """
         Wait for and confirm the delete confirmation dialog.
@@ -970,22 +1043,18 @@ class YouTubeStudioAPI:
         """
         # Wait for the dialog to appear
         dialog_visible = False
-        dialog_selectors = [
-            "ytcp-confirmation-dialog#batch-remove-confirmation-dialog",
-            "#batch-remove-confirmation-dialog",
-            "ytcp-confirmation-dialog",
-            "tp-yt-paper-dialog[aria-modal='true']",
-        ]
-        for selector in dialog_selectors:
-            try:
-                WebDriverWait(self.driver, 8).until(
-                    EC.visibility_of_element_located((By.CSS_SELECTOR, selector))
-                )
-                dialog_visible = True
-                logger.debug(f"Dialog ditemukan: {selector}")
-                break
-            except TimeoutException:
-                continue
+        dialog_xpath = (
+            "//*[@role='dialog' and not(.//*[contains(., 'Verifikasi diri Anda')]) "
+            "and .//*[contains(., 'Hapus') or contains(., 'Delete') or contains(., 'Remove')]]"
+        )
+        try:
+            WebDriverWait(self.driver, 8).until(
+                EC.visibility_of_element_located((By.XPATH, dialog_xpath))
+            )
+            dialog_visible = True
+            logger.debug("Dialog konfirmasi hapus ditemukan")
+        except TimeoutException:
+            pass
 
         if not dialog_visible:
             logger.debug("Dialog konfirmasi tidak muncul")
@@ -996,16 +1065,14 @@ class YouTubeStudioAPI:
         # Click the confirm button
         confirm_selectors = [
             # CSS selectors — most specific first
-            (By.CSS_SELECTOR, "#batch-remove-confirmation-dialog #confirm-button"),
-            (By.CSS_SELECTOR, "ytcp-confirmation-dialog #confirm-button"),
-            (By.CSS_SELECTOR, "#confirm-button"),
+            (By.XPATH, dialog_xpath + "//*[@id='confirm-button']"),
             # XPath — more flexible fallback
-            (By.XPATH, "//ytcp-button[@id='confirm-button']"),
-            (By.XPATH, "//*[@slot='submit-button']"),
-            (By.XPATH, "//ytcp-button[contains(., 'Hapus')]"),
-            (By.XPATH, "//ytcp-button[contains(., 'Delete')]"),
-            (By.XPATH, "//ytcp-button[contains(., 'Remove')]"),
-            (By.XPATH, "//*[@role='dialog']//ytcp-button[contains(@class, 'primary')]"),
+            (By.XPATH, dialog_xpath + "//ytcp-button[contains(., 'Hapus')]"),
+            (By.XPATH, dialog_xpath + "//ytcp-button[contains(., 'Delete')]"),
+            (By.XPATH, dialog_xpath + "//ytcp-button[contains(., 'Remove')]"),
+            (By.XPATH, dialog_xpath + "//button[contains(., 'Hapus')]"),
+            (By.XPATH, dialog_xpath + "//button[contains(., 'Delete')]"),
+            (By.XPATH, dialog_xpath + "//button[contains(., 'Remove')]"),
         ]
         for by, selector in confirm_selectors:
             try:
